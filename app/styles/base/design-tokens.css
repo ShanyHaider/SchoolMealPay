@@ -1,0 +1,122 @@
+/* CSS Variables & Theme */
+@layer base {
+  :root {
+    /* Backgrounds */
+    --bg-primary: #ffffff;
+    --bg-secondary: #f7f7f5;
+    --bg-tertiary: #efefec;
+    --bg-nav: rgba(255, 255, 255, 0.88);
+    --bg-card: #ffffff;
+    --bg-pill: #e8e8e4;
+
+    /* Text */
+    --text-primary: #0f0f0e;
+    --text-secondary: #6b6b64;
+    --text-muted: #a3a39a;
+
+    /* Borders */
+    --border-primary: rgba(0, 0, 0, 0.08);
+    --border-card: rgba(0, 0, 0, 0.06);
+    --border-input: rgba(0, 0, 0, 0.12);
+    --border-input-focus: rgba(0, 0, 0, 0.4);
+
+    /* Accent */
+    --accent: #1a1a18;
+    --accent-hover: #2d2d2a;
+    --accent-text: #ffffff;
+
+    /* Shadows */
+    --shadow-nav: 0 1px 0 rgba(0, 0, 0, 0.06);
+    --shadow-card:
+      0 4px 32px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04);
+    --shadow-pill: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 1px rgba(0, 0, 0, 0.06);
+    --shadow-btn: 0 1px 2px rgba(0, 0, 0, 0.16);
+
+    --divider: rgba(0, 0, 0, 0.06);
+    --nav-height: 60px;
+
+    /* Nav pill specific */
+    --nav-pill-border: linear-gradient(180deg, #b0b0aa, #d0d0cc);
+    --nav-pill-inner: linear-gradient(0deg, #f0f0ec, #e8e8e4);
+    --nav-pill-inset-shadow: rgba(0, 0, 0, 0.15);
+    --nav-bubble-active-from: #ffffff;
+    --nav-bubble-active-to: #d8d8d4;
+    --nav-bubble-active-glow: rgba(255, 255, 255, 0.8);
+    --nav-bubble-hover-from: #c8c8c4;
+    --nav-bubble-hover-to: #b8b8b4;
+    --nav-bubble-hover-glow: rgba(255, 255, 255, 0.3);
+    --nav-pill-text: rgba(0, 0, 0, 0.45);
+    --nav-pill-text-active: #0f0f0e;
+    --nav-pill-text-hover: rgba(0, 0, 0, 0.8);
+
+    /* Drawer */
+    --drawer-bg: var(--bg-primary);
+    --drawer-border: var(--border-primary);
+    --drawer-item-color: var(--text-secondary);
+    --drawer-item-active-color: var(--text-primary);
+    --drawer-item-hover-bg: rgba(0, 0, 0, 0.05);
+    --drawer-item-active-bg: rgba(0, 0, 0, 0.07);
+
+    /* User menu */
+    --usermenu-bg: #ffffff;
+    --usermenu-border: rgba(0, 0, 0, 0.08);
+    --usermenu-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    --usermenu-hover: rgba(0, 0, 0, 0.05);
+    --usermenu-avatar-bg: #4f4fc4;
+  }
+
+  .dark {
+    --bg-primary: #0c0c0b;
+    --bg-secondary: #141413;
+    --bg-tertiary: #1c1c1a;
+    --bg-nav: rgba(12, 12, 11, 0.88);
+    --bg-card: #161615;
+    --bg-pill: #242422;
+
+    --text-primary: #f0f0ec;
+    --text-secondary: #888880;
+    --text-muted: #55554e;
+
+    --border-primary: rgba(255, 255, 255, 0.06);
+    --border-card: rgba(255, 255, 255, 0.07);
+    --border-input: rgba(255, 255, 255, 0.1);
+    --border-input-focus: rgba(255, 255, 255, 0.36);
+
+    --accent: #f0f0ec;
+    --accent-hover: #d8d8d2;
+    --accent-text: #0c0c0b;
+
+    --shadow-nav: 0 1px 0 rgba(255, 255, 255, 0.04);
+    --shadow-card: 0 4px 32px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.3);
+    --shadow-pill: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 1px rgba(0, 0, 0, 0.3);
+    --shadow-btn: 0 1px 2px rgba(0, 0, 0, 0.5);
+
+    --divider: rgba(255, 255, 255, 0.06);
+
+    --nav-pill-border: linear-gradient(180deg, #3f3f3f, #212121);
+    --nav-pill-inner: linear-gradient(0deg, #141414, #242424);
+    --nav-pill-inset-shadow: rgba(0, 0, 0, 0.6);
+    --nav-bubble-active-from: #f2f2f2;
+    --nav-bubble-active-to: #b3b3b3;
+    --nav-bubble-active-glow: #ffffff;
+    --nav-bubble-hover-from: #3f3f3f;
+    --nav-bubble-hover-to: #212121;
+    --nav-bubble-hover-glow: rgba(255, 255, 255, 0.16);
+    --nav-pill-text: rgba(255, 255, 255, 0.7);
+    --nav-pill-text-active: #0f0f0f;
+    --nav-pill-text-hover: #ffffff;
+
+    --drawer-bg: var(--bg-primary);
+    --drawer-border: var(--border-primary);
+    --drawer-item-color: var(--text-secondary);
+    --drawer-item-active-color: var(--text-primary);
+    --drawer-item-hover-bg: rgba(255, 255, 255, 0.05);
+    --drawer-item-active-bg: rgba(255, 255, 255, 0.08);
+
+    --usermenu-bg: #1c1c1a;
+    --usermenu-border: rgba(255, 255, 255, 0.08);
+    --usermenu-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    --usermenu-hover: rgba(255, 255, 255, 0.06);
+    --usermenu-avatar-bg: #4f4fc4;
+  }
+}

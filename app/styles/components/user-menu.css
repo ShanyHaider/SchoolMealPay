@@ -1,0 +1,138 @@
+/* User Menu Dropdown */
+.user-menu {
+  position: relative;
+}
+
+.user-menu__trigger {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 999px;
+  transition: opacity 0.15s;
+}
+
+.user-menu__trigger:hover {
+  opacity: 0.8;
+}
+
+.user-menu__avatar,
+.user-menu__avatar-lg {
+  border-radius: 50%;
+  object-fit: cover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: var(--usermenu-avatar-bg);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.user-menu__avatar {
+  width: 34px;
+  height: 34px;
+  font-size: 13px;
+}
+
+.user-menu__avatar-lg {
+  width: 38px;
+  height: 38px;
+  font-size: 14px;
+}
+
+.user-menu__avatar--skeleton {
+  background: rgba(128, 128, 128, 0.2);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.user-menu__dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 220px;
+  background: var(--usermenu-bg);
+  border: 1px solid var(--usermenu-border);
+  border-radius: 14px;
+  box-shadow: var(--usermenu-shadow);
+  padding: 6px;
+  z-index: 200;
+  transform-origin: top right;
+}
+
+.user-menu__dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 12px;
+}
+
+.user-menu__dropdown-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.user-menu__name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-menu__email {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-menu__divider {
+  height: 1px;
+  background: var(--usermenu-border);
+  margin: 4px 0;
+}
+
+.user-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: var(--text-primary);
+  text-decoration: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s;
+  text-align: left;
+}
+
+.user-menu__item:hover {
+  background: var(--usermenu-hover);
+}
+
+.user-menu__item--danger {
+  color: #d93025;
+}
+
+.user-menu__item--danger:hover {
+  background: rgba(217, 48, 37, 0.07);
+}
+
+.user-menu__item-icon {
+  font-size: 15px;
+  opacity: 0.7;
+  flex-shrink: 0;
+}

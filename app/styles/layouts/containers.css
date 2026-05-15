@@ -1,0 +1,10 @@
+/* Container Layouts */
+.hero__container,
+.features__container,
+.pricing__container,
+.footer__container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
