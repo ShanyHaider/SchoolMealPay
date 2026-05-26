@@ -10,7 +10,9 @@ export const auditLogsTable = pgTable(
   "audit_logs",
   {
     id,
-    userId: uuid("user_id").references(() => usersTable.id),
+    userId: uuid("user_id").references(() => usersTable.id, {
+      onDelete: "set null",
+    }),
     action: varchar().notNull(), // e.g. "role_updated", "canteen_staff_assigned"
     entityType: varchar("entity_type").notNull(), // e.g. "user", "canteen", "order"
     entityId: uuid("entity_id"),

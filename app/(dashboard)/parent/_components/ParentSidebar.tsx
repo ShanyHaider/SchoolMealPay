@@ -22,8 +22,14 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/Components/ui/tooltip";
-import { Sheet, SheetContent, SheetTrigger } from "@/Components/ui/sheet";
+} from "@/components/ui/tooltip";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import type { usersTable } from "@/drizzle/schema";
 
@@ -47,19 +53,32 @@ export function ParentSidebar({ user }: { user: User }) {
 
   return (
     <TooltipProvider delayDuration={0}>
-      {/* Mobile Trigger */}
-      <div className="lg:hidden fixed top-4 left-4 z-50">
+      {/* Mobile Trigger - Aligned centered to match Topbar baseline heights */}
+      <div className="lg:hidden fixed top-3.5 left-4 z-50 flex items-center h-9">
         <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
           <SheetTrigger asChild>
-            <button className="p-2 bg-[var(--bg-card)] border border-[var(--border-card)] rounded-lg shadow-sm active:scale-95 transition-transform">
-              <Menu className="w-5 h-5 text-[var(--text-primary)]" />
+            <button className="p-2 bg-(--bg-card) border border-(--border-card) rounded-lg shadow-sm active:scale-95 transition-transform flex items-center justify-center">
+              <Menu className="w-5 h-5 text-(--text-primary)" />
             </button>
           </SheetTrigger>
           <SheetContent
             side="left"
-            className="p-0 w-[280px] bg-[var(--bg-primary)] border-r-[var(--border-primary)]"
+            className="p-0 w-[280px] bg-(--bg-primary) border-r-(--border-primary)"
           >
-            <SidebarInner user={user} pathname={pathname} />
+            {/* Accessibility Titles for Radix Primitives */}
+            <div className="sr-only">
+              <SheetTitle>Parent Navigation Menu</SheetTitle>
+              <SheetDescription>
+                Review meal menus, monitor children account metrics, and update
+                allowances.
+              </SheetDescription>
+            </div>
+
+            <SidebarInner
+              user={user}
+              pathname={pathname}
+              closeMobileMenu={() => setIsMobileOpen(false)}
+            />
           </SheetContent>
         </Sheet>
       </div>
@@ -68,7 +87,7 @@ export function ParentSidebar({ user }: { user: User }) {
       <motion.aside
         initial={false}
         animate={{ width: isCollapsed ? 80 : 260 }}
-        className="fixed top-0 left-0 bottom-0 hidden lg:flex flex-col bg-[var(--bg-primary)] border-r border-[var(--border-primary)] z-40 overflow-hidden"
+        className="fixed top-0 left-0 bottom-0 hidden lg:flex flex-col bg-(--bg-primary) border-r border-(--border-primary) z-40 overflow-hidden"
       >
         <SidebarInner
           user={user}
@@ -94,15 +113,17 @@ function SidebarInner({
   pathname,
   isCollapsed = false,
   onToggle,
+  closeMobileMenu,
 }: {
   user: User;
   pathname: string;
   isCollapsed?: boolean;
   onToggle?: () => void;
+  closeMobileMenu?: () => void;
 }) {
   return (
     <div className="flex flex-col h-full py-3 px-3">
-      {/* Header - Logo hidden when collapsed to fix overlap */}
+      {/* Header */}
       <div
         className={cn(
           "flex items-center mb-6 px-3 transition-all duration-300 min-h-[40px]",
@@ -118,10 +139,10 @@ function SidebarInner({
               exit={{ opacity: 0, x: -10 }}
               className="flex items-center gap-3 shrink-0"
             >
-              <div className="w-8 h-8 bg-[var(--accent)] text-[var(--accent-text)] rounded-lg flex items-center justify-center font-bold shrink-0 shadow-md">
+              <div className="w-8 h-8 bg-(--accent) text-(--accent-text) rounded-lg flex items-center justify-center font-bold shrink-0 shadow-md">
                 SM
               </div>
-              <span className="font-semibold text-[var(--text-primary)] whitespace-nowrap tracking-tight">
+              <span className="font-semibold text-(--text-primary) whitespace-nowrap tracking-tight">
                 SchoolMealPay
               </span>
             </motion.div>
@@ -132,7 +153,7 @@ function SidebarInner({
           <button
             onClick={onToggle}
             className={cn(
-              "p-2 hover:bg-[var(--bg-tertiary)] rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors",
+              "p-2 hover:bg-(--bg-tertiary) rounded-md text-(--text-muted) hover:text-(--text-primary) transition-colors",
               isCollapsed && "mx-auto",
             )}
           >
@@ -157,20 +178,20 @@ function SidebarInner({
               <TooltipTrigger asChild>
                 <Link
                   href={item.href}
+                  onClick={closeMobileMenu}
                   className={cn(
                     "relative flex items-center p-3 rounded-xl transition-all duration-200 group",
                     isActive ?
-                      "text-[var(--text-primary)]"
-                    : "text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]",
+                      "text-(--text-primary)"
+                    : "text-(--text-secondary) hover:bg-(--bg-tertiary) hover:text-(--text-primary)",
                     isCollapsed ? "justify-center" : "gap-3",
                   )}
                 >
-                  {/* Lucide Icon - SVG ensures visibility */}
                   <Icon
                     size={22}
                     className={cn(
                       "shrink-0 relative z-30 transition-transform duration-200 group-hover:scale-110",
-                      isActive ? "text-[var(--accent)]" : "opacity-80",
+                      isActive ? "text-(--accent)" : "opacity-80",
                     )}
                   />
 
@@ -187,8 +208,8 @@ function SidebarInner({
                   {/* Active Background Pill */}
                   {isActive && (
                     <motion.div
-                      layoutId="active-pill"
-                      className="absolute inset-0 bg-[var(--bg-tertiary)] rounded-xl z-0 border border-[var(--border-card)] shadow-sm"
+                      layoutId="active-pill-parent"
+                      className="absolute inset-0 bg-(--bg-tertiary) rounded-xl z-0 border border-(--border-card) shadow-sm"
                       transition={{
                         type: "spring",
                         bounce: 0.15,
@@ -216,11 +237,11 @@ function SidebarInner({
       {/* User Section */}
       <div
         className={cn(
-          "mt-auto pt-3 border-t border-[var(--border-primary)] flex items-center px-2 transition-all duration-300",
+          "mt-auto pt-3 border-t border-(--border-primary) flex items-center px-2 transition-all duration-300",
           isCollapsed ? "justify-center" : "gap-3",
         )}
       >
-        <div className="w-10 h-10 rounded-full bg-zinc-800 border border-[var(--border-primary)] flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+        <div className="w-10 h-10 rounded-full bg-zinc-800 border border-(--border-primary) flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
           {user.imageUrl ?
             <img
               src={user.imageUrl}
@@ -228,7 +249,7 @@ function SidebarInner({
               className="w-full h-full object-cover"
             />
           : <span className="text-sm font-bold text-white uppercase">
-              {user.name[0]}
+              {user.name?.[0] || "P"}
             </span>
           }
         </div>
@@ -239,10 +260,10 @@ function SidebarInner({
             animate={{ opacity: 1 }}
             className="flex flex-col min-w-0"
           >
-            <span className="text-sm font-semibold text-[var(--text-primary)] truncate leading-none mb-1">
+            <span className="text-sm font-semibold text-(--text-primary) truncate leading-none mb-1">
               {user.name}
             </span>
-            <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest font-bold">
+            <span className="text-[10px] text-(--text-muted) uppercase tracking-widest font-bold">
               Parent
             </span>
           </motion.div>

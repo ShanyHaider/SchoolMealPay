@@ -23,6 +23,7 @@ export const blockedItemsTable = pgTable(
     createdAt,
   },
   (t) => [
+    index("blocked_items_student_menu_item_idx").on(t.studentId, t.menuItemId),
     index("blocked_items_student_idx").on(t.studentId),
     index("blocked_items_parent_idx").on(t.parentId),
   ],

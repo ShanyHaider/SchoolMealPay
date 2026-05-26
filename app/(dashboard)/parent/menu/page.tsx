@@ -4,7 +4,7 @@ import { getUser } from "@/db/queries/Users";
 import { getChildrenByParent } from "@/db/queries/Students";
 import { getAllCanteens, getDailyMenu } from "@/db/queries/Canteen";
 import { MenuClient } from "./_components/MenuClient";
-import { FadeIn } from "../_components/AnimatedHeader";
+import { FadeIn } from "@/components/Motion";
 
 export default async function MenuPage({
   searchParams,

@@ -4,11 +4,13 @@ import {
   jsonb,
   pgTable,
   text,
+  unique,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
 import { id, createdAt, updatedAt } from "../schemaHelpers";
 import { usersTable } from "./users";
+import { canteensTable } from "./canteens";
 
 // Key-value store for global system settings (SRS-205 to SRS-209).
 // Examples of keys: "default_currency", "session_timeout_minutes",
@@ -20,6 +22,9 @@ export const systemConfigTable = pgTable(
   "system_config",
   {
     id,
+    canteenId: uuid("canteen_id").references(() => canteensTable.id, {
+      onDelete: "cascade",
+    }),
     key: varchar().notNull().unique(),
     value: jsonb().notNull(),
     description: text(),
@@ -28,7 +33,10 @@ export const systemConfigTable = pgTable(
     createdAt,
     updatedAt,
   },
-  (t) => [index("system_config_key_idx").on(t.key)],
+  (t) => [
+    unique("canteen_config_key_unique").on(t.canteenId, t.key),
+    index("system_config_key_idx").on(t.key),
+  ],
 );
 
 // Configurable templates for each notification event type (SRS-211).

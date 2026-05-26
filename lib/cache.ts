@@ -71,3 +71,7 @@ export function getCanteenTag(tag: CacheTag, canteenId: string) {
 export function getStudentTag(tag: CacheTag, studentId: string) {
   return `student:${studentId}:${tag}` as const;
 }
+
+export function getAdminTag(tag: CacheTag) {
+  return `admin:${tag}` as const;
+}

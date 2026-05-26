@@ -1,4 +1,10 @@
-import { decimal, integer, pgTable, varchar } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  decimal,
+  integer,
+  pgTable,
+  varchar,
+} from "drizzle-orm/pg-core";
 import { id, createdAt, updatedAt } from "../schemaHelpers";
 
 // Reference nutrition targets used for comparison reports (SRS-185).
@@ -15,7 +21,7 @@ export const nutritionTargetsTable = pgTable("nutrition_targets", {
   dailyCarbsG: decimal("daily_carbs_g", { precision: 6, scale: 2 }),
   dailyFatG: decimal("daily_fat_g", { precision: 6, scale: 2 }),
   source: varchar(), // e.g. "WHO 2023", "Pakistan NNS"
-  isDefault: varchar("is_default").notNull().default("false"),
+  isDefault: boolean("is_default").notNull().default(false),
   createdAt,
   updatedAt,
 });

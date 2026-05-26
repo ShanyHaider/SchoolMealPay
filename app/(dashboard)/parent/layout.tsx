@@ -17,7 +17,7 @@ export default async function ParentLayout({
   if (!dbUser || dbUser.role !== "parent") redirect("/dashboard");
 
   return (
-    <div className="flex min-h-screen bg-[var(--bg-secondary)]">
+    <div className="flex min-h-screen w-full bg-[var(--bg-secondary)]">
       {/* Sidebar is flush left/top */}
       <ParentSidebar user={dbUser} />
 
@@ -25,9 +25,11 @@ export default async function ParentLayout({
         {/* Topbar will now be flush against the top ceiling */}
         <ParentTopbar user={dbUser} />
 
+        {/* Scrollable area wrapper */}
         <main className="flex-1 overflow-y-auto">
-          {/* This wrapper adds the padding back ONLY to the page content */}
-          <div className="page-padding">{children}</div>
+          <div className="w-full max-w-350 mx-auto px-4 py-6 md:px-8 md:py-8">
+            {children}
+          </div>
         </main>
       </div>
     </div>

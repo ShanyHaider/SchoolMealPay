@@ -250,3 +250,21 @@ export async function revalidateChatbotCache(
   revalidateTag(getIdTag("chatbot-conversations", conversationId));
   revalidateTag(getUserTag("chatbot-conversations", userId));
 }
+
+export async function revalidateParentProSubscription(parentId: string) {
+  revalidateTag(getGlobalTag("parent-pro-subscriptions"));
+  revalidateTag(getUserTag("parent-pro-subscriptions", parentId));
+}
+
+export async function revalidateSchoolSubscription() {
+  revalidateTag(getGlobalTag("school-subscription"));
+}
+
+export async function revalidateInvoices() {
+  revalidateTag(getGlobalTag("subscription-invoices"));
+}
+
+export async function revalidateWallet(parentId: string) {
+  revalidateTag(getGlobalTag("transactions"));
+  revalidateTag(getUserTag("transactions", parentId));
+}

@@ -1,8 +1,8 @@
 import {
   boolean,
   date,
+  decimal,
   index,
-  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -72,9 +72,15 @@ export const nutritionTrendsTable = pgTable(
     nutrient: text().notNull(), // "calories" | "protein_g" | "fiber_g" | "carbs_g" | "fat_g"
 
     // Observed average vs reference target over this period
-    averageDaily: text("average_daily").notNull(), // decimal as text to avoid float issues
-    targetDaily: text("target_daily").notNull(),
-    percentOfTarget: text("percent_of_target").notNull(), // e.g. "67.4"
+    averageDaily: decimal("average_daily", {
+      precision: 6,
+      scale: 2,
+    }).notNull(),
+    targetDaily: decimal("target_daily", { precision: 6, scale: 2 }).notNull(),
+    percentOfTarget: decimal("percent_of_target", {
+      precision: 5,
+      scale: 1,
+    }).notNull(), // e.g. "67.4"
 
     trendLevel: trendLevelEnum("trend_level").notNull(),
 

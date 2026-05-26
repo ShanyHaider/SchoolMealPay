@@ -1,5 +1,7 @@
 "use client";
 
+import { motion, AnimatePresence } from "framer-motion";
+import { Moon, Sun } from "lucide-react";
 import {
   createContext,
   useContext,
@@ -76,4 +78,33 @@ export function useTheme() {
   const ctx = useContext(ThemeContext);
   if (!ctx) throw new Error("useTheme must be used within ThemeProvider");
   return ctx;
+}
+
+export function ThemeToggleButton() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+
+  return (
+    <button
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+      aria-label="Toggle structural interface skin theme"
+      className="flex h-11 w-11 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer"
+    >
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={isDark ? "sun" : "moon"}
+          initial={{ opacity: 0, rotate: -45, scale: 0.8 }}
+          animate={{ opacity: 1, rotate: 0, scale: 1 }}
+          exit={{ opacity: 0, rotate: 45, scale: 0.8 }}
+          transition={{ duration: 0.15 }}
+          className="flex items-center justify-center"
+        >
+          {/* Increased icon footprint from 16px to 19px */}
+          {isDark ?
+            <Sun size={19} className="text-amber-500" />
+          : <Moon size={19} />}
+        </motion.div>
+      </AnimatePresence>
+    </button>
+  );
 }

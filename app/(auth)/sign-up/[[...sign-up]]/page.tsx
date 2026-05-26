@@ -11,7 +11,7 @@ import {
   AuthInput,
   OrDivider,
   GoogleIcon,
-} from "@/Components/AuthCard";
+} from "@/app/(auth)/_components/AuthCard";
 
 export default function SignUpPage() {
   const { signUp, errors, fetchStatus } = useSignUp();

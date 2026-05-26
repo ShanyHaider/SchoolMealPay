@@ -48,12 +48,12 @@ export default async function ParentDashboardPage() {
         {/* Header */}
         <header className="mb-10">
           <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">
+            <h1 className="text-3xl font-bold tracking-tight text-(--text-primary)">
               Good morning, {dbUser.name.split(" ")[0]}
             </h1>
             <span className="text-3xl">👋</span>
           </div>
-          <p className="text-sm md:text-base text-[var(--text-secondary)] font-medium">
+          <p className="text-sm md:text-base text-(--text-secondary) font-medium">
             Here's what's happening with your children today.
           </p>
         </header>

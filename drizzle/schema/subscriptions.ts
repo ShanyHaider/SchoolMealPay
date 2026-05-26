@@ -25,6 +25,8 @@ export const subscriptionStatusEnum = pgEnum("subscription_status", [
   "past_due",
   "cancelled",
   "expired",
+  "unpaid",
+  "incomplete",
 ]);
 
 export const invoiceStatusEnum = pgEnum("invoice_status", [
@@ -63,6 +65,9 @@ export const schoolSubscriptionTable = pgTable("school_subscription", {
   cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
   revertToFreeAt: timestamp("revert_to_free_at", { withTimezone: true }),
 
+  stripeCustomerId: varchar("stripe_customer_id").unique(),
+  stripeSubscriptionId: varchar("stripe_subscription_id").unique(),
+
   createdAt,
   updatedAt,
 });
@@ -76,7 +81,13 @@ export const subscriptionInvoicesTable = pgTable("subscription_invoices", {
     .references(() => schoolSubscriptionTable.id),
   amount: decimal({ precision: 10, scale: 2 }).notNull(),
   status: invoiceStatusEnum().notNull().default("pending"),
-  billingCycle: billingCycleEnum("billing_cycle").notNull(),
+  // FIX: made nullable — parent Pro invoices don't always have a billing cycle
+  billingCycle: billingCycleEnum("billing_cycle"),
+  // FIX: added Stripe invoice tracking columns the webhook needs
+  stripeInvoiceId: varchar("stripe_invoice_id").unique(),
+  currency: varchar({ length: 3 }).notNull().default("PKR"),
+  billingPeriodStart: timestamp("billing_period_start", { withTimezone: true }),
+  billingPeriodEnd: timestamp("billing_period_end", { withTimezone: true }),
   gatewayInvoiceId: varchar("gateway_invoice_id"),
   paidAt: timestamp("paid_at", { withTimezone: true }),
   dueAt: timestamp("due_at", { withTimezone: true }),
@@ -102,6 +113,11 @@ export const parentProSubscriptionsTable = pgTable("parent_pro_subscriptions", {
 
   gatewaySubscriptionId: varchar("gateway_subscription_id"),
   cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+
+  // ADDED: Safe targeted Stripe integration columns
+  stripeCustomerId: varchar("stripe_customer_id").unique(),
+  stripeSubscriptionId: varchar("stripe_subscription_id").unique(),
+
   createdAt,
   updatedAt,
 });

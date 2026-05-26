@@ -5,7 +5,7 @@ import { getChildrenByParent } from "@/db/queries/Students";
 import Link from "next/link";
 import { UserPlus, Users } from "lucide-react";
 import { ChildCard } from "./_components/ChildCard";
-import { FadeIn } from "../_components/AnimatedHeader";
+import { FadeIn } from "@/components/Motion";
 
 export default async function ChildrenPage() {
   const clerkUser = await currentUser();

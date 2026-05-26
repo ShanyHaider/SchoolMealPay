@@ -9,7 +9,7 @@ export default function SSOCallback() {
   useEffect(() => {
     handleRedirectCallback({
       signInForceRedirectUrl: "/dashboard",
-      signUpForceRedirectUrl: "/onboarding", // or "/dashboard" if same destination
+      signUpForceRedirectUrl: "/dashboard", // or "/dashboard" if same destination
     });
   }, [handleRedirectCallback]);
 

@@ -50,5 +50,10 @@ export const chatbotMessagesTable = pgTable(
     content: text().notNull(),
     createdAt,
   },
-  (t) => [index("chatbot_messages_conversation_idx").on(t.conversationId)],
+  (t) => [
+    index("chatbot_messages_conversation_time_idx").on(
+      t.conversationId,
+      t.createdAt,
+    ),
+  ],
 );

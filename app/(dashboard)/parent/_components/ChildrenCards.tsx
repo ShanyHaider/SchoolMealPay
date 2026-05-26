@@ -173,7 +173,7 @@ function ChildCard({ link }: { link: ChildLink }) {
 export function ChildrenCards({ children }: { children: ChildLink[] }) {
   if (children.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-4 py-16  bg-[var(--bg-card)] border border-[var(--border-card)]  rounded-2xl">
+      <div className="flex flex-col items-center gap-4 py-16  bg-(--bg-card) border border-(--border-card)  rounded-2xl">
         <div className="w-14 h-14 rounded-2xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center">
           <User size={24} className="text-gray-400" />
         </div>

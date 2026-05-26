@@ -15,10 +15,9 @@
 
 /* Layout Styles */
 @import "./styles/layouts/containers.css";
-@import "./styles/layouts/hero.css";
-@import "./styles/layouts/features.css";
-@import "./styles/layouts/pricing.css";
-@import "./styles/layouts/how-it-works.css";
-@import "./styles/layouts/footer.css";
 
 @variant dark (&:where(.dark, .dark *));
+
+/* *{
+    border:1px solid 
+} */

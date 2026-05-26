@@ -40,3 +40,6 @@ export * from "./schema/chatbot";
 
 // Relations
 export * from "./relations";
+
+// StripeWebhooks
+export * from "./schema/stripeWebhooks";
