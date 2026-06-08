@@ -1,6 +1,5 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { getUser } from "@/db/queries/Users";
 import {
   getStaffCanteen,
   getStaffOverviewStats,
@@ -12,14 +11,17 @@ import { LiveOrdersPreview } from "./_components/LiveOrdersPreview";
 import { TodayMenuPreview } from "./_components/TodayMenuPreview";
 import Link from "next/link";
 import { QrCode, ClipboardList } from "lucide-react";
+import { getUserFromDb } from "@/features/users/queries";
 
 export default async function CanteenStaffPage() {
   const clerkUser = await currentUser();
   if (!clerkUser) redirect("/sign-in");
-  const dbUser = await getUser(clerkUser.id);
+  const dbUser = await getUserFromDb(clerkUser.id);
   if (!dbUser) redirect("/sign-in");
 
   const canteen = await getStaffCanteen(dbUser.id);
+  const today = new Date().toISOString().split("T")[0];
+
 
   if (!canteen) {
     return (
@@ -55,7 +57,7 @@ export default async function CanteenStaffPage() {
 
   const [stats, orders, todayMenu] = await Promise.all([
     getStaffOverviewStats(canteen.id),
-    getTodayOrders(canteen.id),
+    getTodayOrders(canteen.id, today),
     getTodayMenu(canteen.id),
   ]);
 

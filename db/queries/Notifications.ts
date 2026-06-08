@@ -7,130 +7,95 @@ import {
   blockedItemsTable,
 } from "@/drizzle/schema";
 import { and, eq } from "drizzle-orm";
-import { unstable_cache } from "next/cache";
-import { getGlobalTag, getIdTag, getUserTag, getStudentTag } from "@/lib/cache";
+import { cacheLife, cacheTag } from "next/cache";
+import { getGlobalTag, getUserTag, getStudentTag } from "@/lib/cache";
 
 // ─── Notifications ─────────────────────────────────────────────
 
-export function getNotificationsByUser(userId: string) {
-  return unstable_cache(
-    () =>
-      db.query.notificationsTable.findMany({
-        where: eq(notificationsTable.userId, userId),
-      }),
-    [getUserTag("notifications", userId)],
-    {
-      tags: [
-        getGlobalTag("notifications"),
-        getUserTag("notifications", userId),
-      ],
-    },
-  )();
+export async function getNotificationsByUser(userId: string) {
+  "use cache";
+  cacheLife("seconds");
+  cacheTag(getGlobalTag("notifications"), getUserTag("notifications", userId));
+  return db.query.notificationsTable.findMany({
+    where: eq(notificationsTable.userId, userId),
+  });
 }
 
-export function getUnreadNotifications(userId: string) {
-  return unstable_cache(
-    () =>
-      db.query.notificationsTable.findMany({
-        where: and(
-          eq(notificationsTable.userId, userId),
-          eq(notificationsTable.isRead, false),
-        ),
-      }),
-    [getUserTag("notifications", userId)],
-    {
-      tags: [
-        getGlobalTag("notifications"),
-        getUserTag("notifications", userId),
-      ],
-    },
-  )();
+export async function getUnreadNotifications(userId: string) {
+  "use cache";
+  cacheLife("seconds");
+  cacheTag(getGlobalTag("notifications"), getUserTag("notifications", userId));
+  return db.query.notificationsTable.findMany({
+    where: and(
+      eq(notificationsTable.userId, userId),
+      eq(notificationsTable.isRead, false),
+    ),
+  });
 }
 
 // ─── Meal Feedback ─────────────────────────────────────────────
 
-export function getMealFeedbackByStudent(studentId: string) {
-  return unstable_cache(
-    () =>
-      db.query.mealFeedbackTable.findMany({
-        where: eq(mealFeedbackTable.studentId, studentId),
-        with: { order: true },
-      }),
-    [getStudentTag("meal-feedback", studentId)],
-    {
-      tags: [
-        getGlobalTag("meal-feedback"),
-        getStudentTag("meal-feedback", studentId),
-      ],
-    },
-  )();
+export async function getMealFeedbackByStudent(studentId: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(getGlobalTag("meal-feedback"), getStudentTag("meal-feedback", studentId));
+  return db.query.mealFeedbackTable.findMany({
+    where: eq(mealFeedbackTable.studentId, studentId),
+    with: { order: true },
+  });
 }
 
-export function getAllMealFeedback() {
-  return unstable_cache(
-    () =>
-      db.query.mealFeedbackTable.findMany({
-        with: { student: true, order: true },
-      }),
-    [getGlobalTag("meal-feedback")],
-    { tags: [getGlobalTag("meal-feedback")] },
-  )();
+export async function getAllMealFeedback() {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(getGlobalTag("meal-feedback"));
+  return db.query.mealFeedbackTable.findMany({
+    with: { student: true, order: true },
+  });
 }
 
 // ─── System Feedback ───────────────────────────────────────────
 
-export function getAllSystemFeedback() {
-  return unstable_cache(
-    () => db.query.systemFeedbackTable.findMany({ with: { user: true } }),
-    [getGlobalTag("system-feedback")],
-    { tags: [getGlobalTag("system-feedback")] },
-  )();
+export async function getAllSystemFeedback() {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(getGlobalTag("system-feedback"));
+  return db.query.systemFeedbackTable.findMany({ with: { user: true } });
 }
 
 // ─── Spending Approvals ────────────────────────────────────────
 
-export function getPendingApprovals(parentId: string) {
-  return unstable_cache(
-    () =>
-      db.query.spendingApprovalsTable.findMany({
-        where: and(
-          eq(spendingApprovalsTable.parentId, parentId),
-          eq(spendingApprovalsTable.status, "pending"),
-        ),
-        with: {
-          order: { with: { orderItems: { with: { menuItem: true } } } },
-          student: true,
-        },
-      }),
-    [getUserTag("spending-approvals", parentId)],
-    {
-      tags: [
-        getGlobalTag("spending-approvals"),
-        getUserTag("spending-approvals", parentId),
-      ],
+export async function getPendingApprovals(parentId: string) {
+  "use cache";
+  cacheLife("seconds");
+  cacheTag(getGlobalTag("spending-approvals"), getUserTag("spending-approvals", parentId));
+  return db.query.spendingApprovalsTable.findMany({
+    where: and(
+      eq(spendingApprovalsTable.parentId, parentId),
+      eq(spendingApprovalsTable.status, "pending"),
+    ),
+    with: {
+      order: { with: { orderItems: { with: { menuItem: true } } } },
+      student: true,
     },
-  )();
+  });
 }
 
 // ─── Blocked Items ─────────────────────────────────────────────
 
-export function getBlockedItems(parentId: string, studentId: string) {
-  return unstable_cache(
-    () =>
-      db.query.blockedItemsTable.findMany({
-        where: and(
-          eq(blockedItemsTable.parentId, parentId),
-          eq(blockedItemsTable.studentId, studentId),
-        ),
-        with: { menuItem: true },
-      }),
-    [getUserTag("blocked-items", parentId)],
-    {
-      tags: [
-        getGlobalTag("blocked-items"),
-        getUserTag("blocked-items", parentId),
-        getStudentTag("blocked-items", studentId),
-      ],
-    },
-  )();
+export async function getBlockedItems(parentId: string, studentId: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(
+    getGlobalTag("blocked-items"),
+    getUserTag("blocked-items", parentId),
+    getStudentTag("blocked-items", studentId),
+  );
+  return db.query.blockedItemsTable.findMany({
+    where: and(
+      eq(blockedItemsTable.parentId, parentId),
+      eq(blockedItemsTable.studentId, studentId),
+    ),
+    with: { menuItem: true },
+  });
 }

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { requestParentChildLink } from "@/db/actions/Students";
+import { requestParentChildLink, requestParentChildLinkByCode } from "@/db/actions/Students";
 import { Search, UserCheck, AlertCircle, CheckCircle2 } from "lucide-react";
 
 export function LinkChildClient({ parentId }: { parentId: string }) {
@@ -24,7 +24,7 @@ export function LinkChildClient({ parentId }: { parentId: string }) {
         // requestParentChildLink takes parentId and studentId
         // In a real flow you would first look up the student by studentCode
         // For now we pass studentCode as the studentId lookup key
-        await requestParentChildLink(parentId, studentCode.trim());
+        await requestParentChildLinkByCode(parentId, studentCode.trim());
         setStatus("success");
         setTimeout(() => router.push("/parent/children"), 2000);
       } catch (err) {
@@ -32,7 +32,7 @@ export function LinkChildClient({ parentId }: { parentId: string }) {
         setErrorMsg(
           err instanceof Error ?
             err.message
-          : "Student not found. Please check the ID and try again.",
+            : "Student not found. Please check the ID and try again.",
         );
       }
     });
@@ -140,7 +140,7 @@ export function LinkChildClient({ parentId }: { parentId: string }) {
               <span className="w-4 h-4 border-2 border-white/30 dark:border-black/30 border-t-white dark:border-t-black rounded-full animate-spin" />
               Searching...
             </>
-          : <>
+            : <>
               <UserCheck size={16} />
               Send link request
             </>

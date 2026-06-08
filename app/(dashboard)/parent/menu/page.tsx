@@ -1,10 +1,10 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { getUser } from "@/db/queries/Users";
 import { getChildrenByParent } from "@/db/queries/Students";
 import { getAllCanteens, getDailyMenu } from "@/db/queries/Canteen";
 import { MenuClient } from "./_components/MenuClient";
 import { FadeIn } from "@/components/Motion";
+import { getUserFromDb } from "@/features/users/queries";
 
 export default async function MenuPage({
   searchParams,
@@ -13,7 +13,7 @@ export default async function MenuPage({
 }) {
   const clerkUser = await currentUser();
   if (!clerkUser) redirect("/sign-in");
-  const dbUser = await getUser(clerkUser.id);
+  const dbUser = await getUserFromDb(clerkUser.id);
   if (!dbUser) redirect("/sign-in");
 
   const filters = await searchParams;
@@ -31,7 +31,7 @@ export default async function MenuPage({
   const menuSchedule =
     selectedCanteenId ?
       await getDailyMenu(selectedCanteenId, selectedDate)
-    : [];
+      : [];
 
   const flattenedMenuItems = menuSchedule.map((item) => ({
     ...item.menuItem,

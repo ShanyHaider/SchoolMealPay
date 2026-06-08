@@ -1,8 +1,13 @@
+// db/schema/canteens.ts
+// operatingHours varchar → operatingFrom + operatingUntil time columns
+// Run a migration: drop operating_hours, add operating_from / operating_until
+
 import {
   boolean,
   index,
   integer,
   pgTable,
+  time,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -15,7 +20,10 @@ export const canteensTable = pgTable(
     id,
     name: varchar().notNull(),
     location: varchar(),
-    operatingHours: varchar("operating_hours"),
+    // Replaces the old `operating_hours` varchar.
+    // Stored as SQL TIME (HH:MM:SS); we only write/read HH:MM from the UI.
+    operatingFrom: time("operating_from"),
+    operatingUntil: time("operating_until"),
     capacity: integer(),
     isActive: boolean("is_active").notNull().default(true),
     createdAt,

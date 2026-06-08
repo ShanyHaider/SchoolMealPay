@@ -1,3 +1,5 @@
+// app/(dashboard)/school-admin/page.tsx
+
 import {
   getAdminOverviewStats,
   getRecentOrdersAdmin,
@@ -27,6 +29,7 @@ export default async function AdminOverviewPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
+
       {/* Header */}
       <div>
         <h1
@@ -45,7 +48,7 @@ export default async function AdminOverviewPage() {
         </p>
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats grid */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <StatCard
           label="Total Students"
@@ -98,7 +101,7 @@ export default async function AdminOverviewPage() {
         <PendingLinksCard links={pendingLinks} />
       </div>
 
-      {/* Quick links */}
+      {/* Quick actions */}
       <div
         className="rounded-xl border p-5"
         style={{
@@ -115,22 +118,10 @@ export default async function AdminOverviewPage() {
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            {
-              label: "Add Student",
-              href: "/school-admin/students",
-              emoji: "🎓",
-            },
+            { label: "Add Student", href: "/school-admin/students", emoji: "🎓" },
             { label: "Schedule Menu", href: "/school-admin/menu", emoji: "📅" },
-            {
-              label: "View Reports",
-              href: "/school-admin/reports",
-              emoji: "📊",
-            },
-            {
-              label: "School Profile",
-              href: "/school-admin/profile",
-              emoji: "🏫",
-            },
+            { label: "View Reports", href: "/school-admin/reports", emoji: "📊" },
+            { label: "School Profile", href: "/school-admin/profile", emoji: "🏫" },
           ].map(({ label, href, emoji }) => (
             <Link
               key={href}
@@ -142,10 +133,7 @@ export default async function AdminOverviewPage() {
               }}
             >
               <span className="text-2xl">{emoji}</span>
-              <span
-                className="text-xs font-medium"
-                style={{ color: "var(--text-secondary)" }}
-              >
+              <span className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
                 {label}
               </span>
             </Link>

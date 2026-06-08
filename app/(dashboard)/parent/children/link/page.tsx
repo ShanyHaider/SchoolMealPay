@@ -1,23 +1,25 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { getUser } from "@/db/queries/Users";
 import { LinkChildClient } from "./_components/LinkChildClient";
+import { getUserFromDb } from "@/features/users/queries";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 export default async function LinkChildPage() {
   const clerkUser = await currentUser();
   if (!clerkUser) redirect("/sign-in");
-  const dbUser = await getUser(clerkUser.id);
+  const dbUser = await getUserFromDb(clerkUser.id);
   if (!dbUser) redirect("/sign-in");
 
   return (
     <div className="flex flex-col gap-6 max-w-6xl">
       <div className="flex items-center gap-3">
-        <a
+        <Link
           href="/parent/children"
-          className="w-8 h-8 flex items-center justify-center rounded-xl bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-gray-400 hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all"
+          className="w-9 h-9 flex items-center justify-center rounded-xl bg-(--bg-secondary) text-(--text-secondary) hover:bg-(--bg-tertiary) hover:text-(--text-primary) transition-colors shrink-0 border border-(--border-card)"
         >
-          ←
-        </a>
+          <ArrowLeft size={15} />
+        </Link>
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-black dark:text-white">
             Link a child

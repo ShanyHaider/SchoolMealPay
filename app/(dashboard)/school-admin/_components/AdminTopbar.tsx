@@ -1,102 +1,63 @@
 "use client";
 
-import React from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useTheme } from "@/components/ThemeProvider";
-import { motion, AnimatePresence } from "framer-motion";
-import { Search, Sun, Moon, Bell } from "lucide-react";
+// app/(dashboard)/school-admin/_components/AdminTopbar.tsx
 
-const ADMIN_BREADCRUMB_MAP: Record<string, string> = {
-  "/admin": "Dashboard",
-  "/admin/classes": "Classes & Rooms",
-  "/admin/students": "Students",
-  "/admin/menu": "Menu Management",
-  "/admin/orders": "Orders & Logs",
-  "/admin/finances": "Finances",
-  "/admin/staff": "Staff Directory",
-  "/admin/settings": "Settings",
+import { usePathname } from "next/navigation";
+import { ThemeToggleButton, useTheme } from "@/components/ThemeProvider";
+import { Search } from "lucide-react";
+
+// Fixed: was /admin/... — corrected to /school-admin/...
+const BREADCRUMB_MAP: Record<string, string> = {
+  "/school-admin": "Dashboard",
+  "/school-admin/students": "Students",
+  "/school-admin/classes": "Classes",
+  "/school-admin/canteen": "Canteen",
+  "/school-admin/staff": "Staff",
+  "/school-admin/menu": "Menu Schedule",
+  "/school-admin/inventory": "Inventory",
+  "/school-admin/reports": "Advanced Reports",
+  "/school-admin/ai-nutrition": "AI Nutrition",
+  "/school-admin/profile": "School Profile",
+  "/school-admin/billing": "Billing",
 };
 
-interface SchoolAdminTopbarProps {
-  user: any;
-}
-
-export function SchoolAdminTopbar({ user }: SchoolAdminTopbarProps) {
+export function SchoolAdminTopbar({ user }: { user: any }) {
   const pathname = usePathname();
   const { resolvedTheme, setTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
+  // Longest matching prefix wins — so /school-admin/students/xyz → "Students"
   const pageTitle =
-    Object.entries(ADMIN_BREADCRUMB_MAP).find(
-      ([path]) => pathname === path || pathname.startsWith(`${path}/`),
-    )?.[1] ?? "Dashboard";
+    Object.entries(BREADCRUMB_MAP)
+      .filter(([path]) => pathname === path || pathname.startsWith(path + "/"))
+      .sort((a, b) => b[0].length - a[0].length)[0]?.[1] ?? "Dashboard";
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-(--border-primary) bg-(--bg-primary)/80 backdrop-blur-md px-4 sm:px-6 lg:px-8">
-      {/* Left Section: Context Titles */}
-      {/* pl-12 shifts the text over on mobile viewports to make clear room for the menu button */}
+    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-[var(--border-primary)] bg-[var(--bg-primary)]/80 backdrop-blur-md px-4 sm:px-6 lg:px-8">
+      {/* Left: page title — pl-12 clears the mobile menu button */}
       <div className="flex flex-col justify-center pl-12 lg:pl-0">
-        <h2 className="text-sm font-semibold text-(--text-primary) md:text-base leading-none mb-1">
+        <h2 className="text-sm font-semibold text-[var(--text-primary)] md:text-base leading-none mb-1">
           {pageTitle}
         </h2>
-        <p className="text-[11px] text-(--text-muted) hidden sm:block leading-none">
+        <p className="text-[11px] text-[var(--text-muted)] hidden sm:block leading-none">
           Manage your school&apos;s canteen system
         </p>
       </div>
 
-      {/* Right Section: Interactive Tool Utilities */}
+      {/* Right: utilities */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* Global Search Bar */}
-        <div className="hidden md:flex items-center gap-2 rounded-lg border border-(--border-input) bg-(--bg-secondary) px-3 py-1.5 focus-within:ring-1 focus-within:ring-(--accent) transition-all">
-          <Search size={16} className="text-(--text-muted)" />
+        {/* Search */}
+        <div className="hidden md:flex items-center gap-2 rounded-lg border border-[var(--border-input)] bg-[var(--bg-secondary)] px-3 py-1.5 focus-within:ring-1 focus-within:ring-[var(--accent)] transition-all">
+          <Search size={16} className="text-[var(--text-muted)]" />
           <input
             type="text"
             placeholder="Search panels..."
-            className="w-[180px] bg-transparent text-[13px] text-(--text-primary) outline-none placeholder:text-(--text-muted)"
+            className="w-[180px] bg-transparent text-[13px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
           />
         </div>
 
-        {/* Animated Theme Switcher */}
-        <button
-          onClick={() => setTheme(isDark ? "light" : "dark")}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-(--border-primary) bg-(--bg-secondary) text-(--text-secondary) hover:bg-(--bg-tertiary) hover:text-(--text-primary) transition-colors"
-          aria-label="Toggle theme"
-        >
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={isDark ? "sun" : "moon"}
-              initial={{ opacity: 0, rotate: -30, scale: 0.8 }}
-              animate={{ opacity: 1, rotate: 0, scale: 1 }}
-              exit={{ opacity: 0, rotate: 30, scale: 0.8 }}
-              transition={{ duration: 0.18 }}
-              className="flex items-center justify-center"
-            >
-              {isDark ?
-                <Sun size={16} />
-              : <Moon size={16} />}
-            </motion.div>
-          </AnimatePresence>
-        </button>
-
-        {/* Activity Alerts Notifications */}
-        <button className="flex h-9 w-9 items-center justify-center rounded-lg border border-(--border-primary) bg-(--bg-secondary) text-(--text-secondary) hover:bg-(--bg-tertiary) hover:text-(--text-primary) transition-colors">
-          <Bell size={16} />
-        </button>
-
-        {/* User Status Profile Link */}
-        <div className="w-8 h-8 rounded-full bg-zinc-800 border border-(--border-primary) flex items-center justify-center overflow-hidden shadow-sm shrink-0">
-          {user.imageUrl ?
-            <img
-              src={user.imageUrl}
-              alt={user.name}
-              className="w-full h-full object-cover"
-            />
-          : <span className="text-xs font-bold text-white uppercase">
-              {user.name?.[0] || "A"}
-            </span>
-          }
-        </div>
+        {/* Theme toggle */}
+        <ThemeToggleButton />
       </div>
     </header>
   );

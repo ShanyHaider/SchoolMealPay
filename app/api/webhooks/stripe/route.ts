@@ -81,17 +81,23 @@ export async function POST(request: NextRequest) {
         break;
       }
 
-      // ── Parent Pro subscription created (first checkout) ──────────────
-      case "customer.subscription.created": {
-        const sub = event.data.object as Stripe.Subscription;
-        await upsertParentProSubscription(sub);
-        break;
-      }
-
+      // ── Subscription created (first checkout) ─────────────────────────
+      // Routes to parent Pro or school handler based on metadata.
+      case "customer.subscription.created":
       // ── Subscription updated (renewal, status change, plan change) ────
       case "customer.subscription.updated": {
         const sub = event.data.object as Stripe.Subscription;
-        await upsertParentProSubscription(sub);
+
+        if (sub.metadata?.parentId) {
+          await upsertParentProSubscription(sub);
+        } else if (sub.metadata?.schoolAdminId) {
+          await upsertSchoolSubscription(sub);
+        } else {
+          console.warn(
+            "[Stripe Webhook] subscription missing known metadata — skipping:",
+            sub.id,
+          );
+        }
         break;
       }
 
@@ -101,21 +107,39 @@ export async function POST(request: NextRequest) {
       // "expired" stays reserved for time-based lapse in our own logic.
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
-        const parentId = sub.metadata?.parentId;
 
-        if (parentId) {
+        if (sub.metadata?.parentId) {
           await db
             .update(parentProSubscriptionsTable)
             .set({ status: "cancelled", cancelledAt: new Date() })
-            .where(eq(parentProSubscriptionsTable.parentId, parentId));
-
-          revalidateParentProSubscriptionCache(parentId);
+            .where(
+              eq(parentProSubscriptionsTable.parentId, sub.metadata.parentId),
+            );
+          revalidateParentProSubscriptionCache(sub.metadata.parentId);
+        } else if (sub.metadata?.schoolAdminId) {
+          await db
+            .update(schoolSubscriptionTable)
+            .set({
+              status: "cancelled",
+              cancelledAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(
+              eq(schoolSubscriptionTable.stripeSubscriptionId, sub.id),
+            );
+          revalidateSchoolSubscriptionCache();
+        } else {
+          console.warn(
+            "[Stripe Webhook] subscription.deleted missing known metadata — skipping:",
+            sub.id,
+          );
         }
         break;
       }
 
       // ── Invoice paid — record billing history ─────────────────────────
-      case "invoice.payment_succeeded": {
+      case "invoice.payment_succeeded":
+      case "invoice.paid": {
         const invoice = event.data.object as Stripe.Invoice;
         await handleInvoicePaid(invoice);
         break;
@@ -129,22 +153,41 @@ export async function POST(request: NextRequest) {
         const subId =
           invoice.parent?.type === "subscription_details" ?
             (invoice.parent.subscription_details?.subscription as string | null)
-          : null;
+            : null;
 
         if (subId) {
-          const row = await db.query.parentProSubscriptionsTable.findFirst({
-            where: eq(parentProSubscriptionsTable.stripeSubscriptionId, subId),
-          });
+          // Check parent Pro first
+          const parentRow = await db.query.parentProSubscriptionsTable.findFirst(
+            {
+              where: eq(
+                parentProSubscriptionsTable.stripeSubscriptionId,
+                subId,
+              ),
+            },
+          );
 
-          if (row) {
+          if (parentRow) {
             await db
               .update(parentProSubscriptionsTable)
               .set({ status: "past_due" })
               .where(
                 eq(parentProSubscriptionsTable.stripeSubscriptionId, subId),
               );
+            revalidateParentProSubscriptionCache(parentRow.parentId);
+            break;
+          }
 
-            revalidateParentProSubscriptionCache(row.parentId);
+          // Check school subscription
+          const schoolRow = await db.query.schoolSubscriptionTable.findFirst({
+            where: eq(schoolSubscriptionTable.stripeSubscriptionId, subId),
+          });
+
+          if (schoolRow) {
+            await db
+              .update(schoolSubscriptionTable)
+              .set({ status: "past_due", updatedAt: new Date() })
+              .where(eq(schoolSubscriptionTable.stripeSubscriptionId, subId));
+            revalidateSchoolSubscriptionCache();
           }
         }
         break;
@@ -214,6 +257,9 @@ async function handleWalletTopup(
   revalidateWallet(parentId);
 }
 
+// ── Parent Pro subscription upsert ────────────────────────────────────────────
+// Handles both created and updated events for parent subscriptions.
+// Uses onConflictDoUpdate so it's safe to call for either event type.
 async function upsertParentProSubscription(sub: Stripe.Subscription) {
   const parentId = sub.metadata?.parentId;
   if (!parentId) {
@@ -270,12 +316,63 @@ async function upsertParentProSubscription(sub: Stripe.Subscription) {
   revalidateParentProSubscriptionCache(parentId);
 }
 
+// ── School subscription upsert ────────────────────────────────────────────────
+// Single-row table — always updates the one seeded row by its primary key.
+// Never inserts; if there's no row the seed script hasn't been run yet.
+async function upsertSchoolSubscription(sub: Stripe.Subscription) {
+  // Stripe Basil API 2025: period dates live on the subscription item, not the
+  // top-level subscription object.
+  const item = sub.items?.data?.[0];
+  if (!item?.current_period_start || !item?.current_period_end) {
+    console.warn(
+      "[Stripe Webhook] Missing period dates on school subscription item:",
+      sub.id,
+    );
+    return;
+  }
+
+  // Single-row table — find the one existing row (seeded at setup time).
+  // We match by stripeSubscriptionId first (handles renewals / updates),
+  // then fall back to the first row (handles the very first creation event
+  // before we've written the Stripe IDs into the DB).
+  const existing =
+    (await db.query.schoolSubscriptionTable.findFirst({
+      where: eq(schoolSubscriptionTable.stripeSubscriptionId, sub.id),
+    })) ?? (await db.query.schoolSubscriptionTable.findFirst());
+
+  if (!existing) {
+    console.warn(
+      "[Stripe Webhook] No school subscription row found — run the seed script.",
+    );
+    return;
+  }
+
+  await db
+    .update(schoolSubscriptionTable)
+    .set({
+      status:
+        sub.status as (typeof schoolSubscriptionTable.$inferInsert)["status"],
+      tier: "premium_school",
+      stripeCustomerId: sub.customer as string,
+      stripeSubscriptionId: sub.id,
+      currentPeriodStart: new Date(item.current_period_start * 1000),
+      currentPeriodEnd: new Date(item.current_period_end * 1000),
+      trialStartedAt: sub.trial_start ? new Date(sub.trial_start * 1000) : null,
+      trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000) : null,
+      trialUsed: sub.trial_start != null,
+      updatedAt: new Date(),
+    })
+    .where(eq(schoolSubscriptionTable.id, existing.id));
+
+  revalidateSchoolSubscriptionCache();
+}
+
 async function handleInvoicePaid(invoice: Stripe.Invoice) {
   // Stripe Basil API 2025: subscription reference lives under invoice.parent
   const subId =
     invoice.parent?.type === "subscription_details" ?
       (invoice.parent.subscription_details?.subscription as string | null)
-    : null;
+      : null;
 
   if (!subId) return;
 
@@ -312,29 +409,52 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   }
 
   // ── School subscription invoice ─────────────────────────────────────────
-  const schoolSub = await db.query.schoolSubscriptionTable.findFirst({
-    where: eq(schoolSubscriptionTable.stripeSubscriptionId, subId),
-  });
+  const schoolSub =
+    (await db.query.schoolSubscriptionTable.findFirst({
+      where: eq(schoolSubscriptionTable.stripeSubscriptionId, subId),
+    })) ?? (await db.query.schoolSubscriptionTable.findFirst());
 
   if (!schoolSub) {
     // Unknown subscription — log and skip rather than writing bad FK data
     console.warn(
-      "[Stripe Webhook] invoice.payment_succeeded: no matching subscription for",
-      subId,
+      "[Stripe Webhook] invoice.payment_succeeded: no school subscription row — run seed script",
     );
     return;
   }
 
-  await db.insert(subscriptionInvoicesTable).values({
-    subscriptionId: schoolSub.id, // FK to schoolSubscriptionTable ✓
-    stripeInvoiceId: invoice.id,
-    amount: amountStr,
-    currency: invoice.currency.toUpperCase(),
-    status: "paid",
-    billingPeriodStart: periodStart,
-    billingPeriodEnd: periodEnd,
-    paidAt: new Date(),
+  // Update the school subscription status to active and refresh period dates.
+  // The subscription.updated event also does this, but doing it here too ensures
+  // the billing page reflects "active" immediately after the invoice is paid,
+  // even if the subscription event arrives out of order.
+  await db
+    .update(schoolSubscriptionTable)
+    .set({
+      status: "active",
+      tier: "premium_school",
+      stripeSubscriptionId: subId,
+      currentPeriodStart: periodStart ?? undefined,
+      currentPeriodEnd: periodEnd ?? undefined,
+      updatedAt: new Date(),
+    })
+    .where(eq(schoolSubscriptionTable.id, schoolSub.id));
+
+  // Avoid duplicate invoice rows on retry — stripeInvoiceId has a unique constraint
+  const existingInvoice = await db.query.subscriptionInvoicesTable.findFirst({
+    where: eq(subscriptionInvoicesTable.stripeInvoiceId, invoice.id),
   });
+
+  if (!existingInvoice) {
+    await db.insert(subscriptionInvoicesTable).values({
+      subscriptionId: schoolSub.id,
+      stripeInvoiceId: invoice.id,
+      amount: amountStr,
+      currency: invoice.currency.toUpperCase(),
+      status: "paid",
+      billingPeriodStart: periodStart,
+      billingPeriodEnd: periodEnd,
+      paidAt: new Date(),
+    });
+  }
 
   revalidateSchoolSubscriptionCache();
   revalidateInvoices();

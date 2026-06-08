@@ -1,7 +1,9 @@
+// app/(dashboard)/school-admin/_components/StatsCard.tsx
+
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 
-const COLOR_MAP: Record<string, string> = {
+const BG: Record<string, string> = {
   blue: "rgba(59,130,246,0.12)",
   purple: "rgba(139,92,246,0.12)",
   green: "rgba(34,197,94,0.12)",
@@ -11,7 +13,7 @@ const COLOR_MAP: Record<string, string> = {
   gray: "rgba(107,114,128,0.12)",
 };
 
-const ICON_COLOR: Record<string, string> = {
+const FG: Record<string, string> = {
   blue: "#3b82f6",
   purple: "#8b5cf6",
   green: "#22c55e",
@@ -49,13 +51,10 @@ export function StatCard({
       }}
     >
       <div
-        className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-        style={{ background: COLOR_MAP[color] ?? COLOR_MAP.blue }}
+        className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+        style={{ background: BG[color] ?? BG.blue }}
       >
-        <Icon
-          size={17}
-          style={{ color: ICON_COLOR[color] ?? ICON_COLOR.blue }}
-        />
+        <Icon size={17} style={{ color: FG[color] ?? FG.blue }} />
       </div>
       <div>
         <p

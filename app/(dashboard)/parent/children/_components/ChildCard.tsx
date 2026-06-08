@@ -10,6 +10,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { toggleStudentOrdering } from "@/db/actions/Students";
+import { StudentQRCode } from "../../_components/StudentQRCode";
 
 const ALLERGEN_COLORS: Record<string, string> = {
   nuts: "bg-zinc-100 text-zinc-900 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-100 dark:border-zinc-700",
@@ -47,7 +48,7 @@ export function ChildCard({ link }: { link: any }) {
                 alt={student.name}
                 className="w-full h-full object-cover"
               />
-            : initials}
+              : initials}
           </div>
           <div
             className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-4 border-(--bg-card) ${student.orderingEnabled ? "bg-green-500" : "bg-gray-400"}`}
@@ -68,7 +69,7 @@ export function ChildCard({ link }: { link: any }) {
                     Grade {student.class.grade} • Section{" "}
                     {student.class.section}
                   </span>
-                : <span>ID: {student.studentCode}</span>}
+                  : <span>ID: {student.studentCode}</span>}
               </div>
             </div>
 
@@ -83,17 +84,29 @@ export function ChildCard({ link }: { link: any }) {
               >
                 <button
                   type="submit"
-                  className={`text-xs px-4 py-2 rounded-xl font-bold transition-all active:scale-95 ${
-                    student.orderingEnabled ?
-                      "bg-green-500/10 text-green-600 hover:bg-green-500/20"
+                  className={`text-xs px-4 py-2 rounded-xl font-bold transition-all active:scale-95 ${student.orderingEnabled ?
+                    "bg-green-500/10 text-green-600 hover:bg-green-500/20"
                     : "bg-(--bg-secondary) text-(--text-muted) hover:bg-(--bg-tertiary)"
-                  }`}
+                    }`}
                 >
                   {student.orderingEnabled ?
                     "Ordering Active"
-                  : "Ordering Paused"}
+                    : "Ordering Paused"}
                 </button>
               </form>
+
+              {/* ── ADD THIS ── */}
+              <StudentQRCode
+                studentId={student.id}
+                studentName={student.name}
+                className={
+                  student.class
+                    ? `Grade ${student.class.grade} · Section ${student.class.section}`
+                    : student.studentCode
+                }
+                photoUrl={student.imageUrl}
+              />
+
               <Link
                 href={`/parent/children/${student.id}`}
                 className="flex items-center justify-center w-10 h-10 rounded-xl bg-(--bg-secondary) text-(--text-secondary) hover:bg-blue-600 hover:text-white transition-all"
@@ -121,7 +134,7 @@ export function ChildCard({ link }: { link: any }) {
                       {a.allergen}
                     </span>
                   ))
-                : <span className="text-xs text-(--text-muted) font-medium">
+                  : <span className="text-xs text-(--text-muted) font-medium">
                     None reported
                   </span>
                 }
@@ -136,8 +149,8 @@ export function ChildCard({ link }: { link: any }) {
               </div>
               <p className="text-sm font-bold text-(--text-primary)">
                 {student.childProfile?.dailySpendingLimit ?
-                  `$${parseFloat(student.childProfile.dailySpendingLimit).toFixed(2)}`
-                : "Unlimited"}
+                  `PKR ${Math.round(parseFloat(student.childProfile.dailySpendingLimit))}`
+                  : "Unlimited"}
               </p>
             </div>
 

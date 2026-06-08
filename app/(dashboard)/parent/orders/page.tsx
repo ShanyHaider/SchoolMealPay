@@ -1,10 +1,10 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { getUser } from "@/db/queries/Users";
 import { getOrdersByParent } from "@/db/queries/Orders";
 import Link from "next/link";
-import { OrderDetailsPage } from "./OrderDetailsPage";
+import { OrderDetailsPage } from "./_components/OrderDetailsPage";
 import { Plus, ShoppingBag, ChevronRight } from "lucide-react";
+import { getUserFromDb } from "@/features/users/queries";
 
 const STATUS_CONFIG = {
   pending: {
@@ -36,7 +36,7 @@ export default async function OrdersPage({
 }) {
   const clerkUser = await currentUser();
   if (!clerkUser) redirect("/sign-in");
-  const dbUser = await getUser(clerkUser.id);
+  const dbUser = await getUserFromDb(clerkUser.id);
   if (!dbUser) redirect("/sign-in");
 
   const allOrders = await getOrdersByParent(dbUser.id);
@@ -109,7 +109,7 @@ export default async function OrdersPage({
           />
           <p className="text-(--text-secondary)">No orders found.</p>
         </div>
-      : <div className="flex flex-col gap-3">
+        : <div className="flex flex-col gap-3">
           {filtered.map((order) => {
             const status = (order.status ??
               "pending") as keyof typeof STATUS_CONFIG;

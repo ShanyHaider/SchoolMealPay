@@ -12,7 +12,9 @@ import {
   AlertTriangle,
   User,
   Package,
+  Search,
 } from "lucide-react";
+import { verifyQrCodeSchema } from "@/lib/validations/actions";
 
 type ScanResult =
   | { success: true; order: any }
@@ -38,14 +40,13 @@ function SuccessCard({ order, onReset }: { order: any; onReset: () => void }) {
 
   return (
     <div
-      className="rounded-2xl border-2 p-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-300"
+      className="rounded-2xl border-2 p-6 animate-in fade-in duration-300 max-w-md mx-auto"
       style={{
         background: "var(--bg-card)",
         borderColor: "rgba(34,197,94,0.4)",
         boxShadow: "0 0 0 4px rgba(34,197,94,0.08)",
       }}
     >
-      {/* Success banner */}
       <div
         className="flex items-center gap-3 px-4 py-3 rounded-xl mb-5"
         style={{ background: "rgba(34,197,94,0.1)" }}
@@ -61,7 +62,6 @@ function SuccessCard({ order, onReset }: { order: any; onReset: () => void }) {
         </div>
       </div>
 
-      {/* Student */}
       <div className="flex items-center gap-4 mb-5">
         <div
           className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold flex-shrink-0"
@@ -88,7 +88,6 @@ function SuccessCard({ order, onReset }: { order: any; onReset: () => void }) {
         </div>
       </div>
 
-      {/* Allergen warning */}
       {allergens.length > 0 && (
         <div
           className="flex items-start gap-3 px-4 py-3 rounded-xl mb-4"
@@ -126,7 +125,6 @@ function SuccessCard({ order, onReset }: { order: any; onReset: () => void }) {
         </div>
       )}
 
-      {/* Order items */}
       <div
         className="rounded-xl p-4 mb-5"
         style={{ background: "var(--bg-secondary)" }}
@@ -188,7 +186,7 @@ function SuccessCard({ order, onReset }: { order: any; onReset: () => void }) {
 function ErrorCard({ error, onReset }: { error: string; onReset: () => void }) {
   return (
     <div
-      className="rounded-2xl border-2 p-6"
+      className="rounded-2xl border-2 p-6 max-w-md mx-auto"
       style={{
         background: "var(--bg-card)",
         borderColor: "rgba(239,68,68,0.4)",
@@ -225,8 +223,12 @@ function ErrorCard({ error, onReset }: { error: string; onReset: () => void }) {
   );
 }
 
-// ─── Main scanner ─────────────────────────────────────────────────
-export function QrScannerClient({ canteenId }: { canteenId: string }) {
+interface QrScannerClientProps {
+  canteenId: string;
+  initialOrders?: any[];
+}
+
+export function QrScannerClient({ canteenId, initialOrders = [] }: QrScannerClientProps) {
   const [mode, setMode] = useState<"camera" | "manual">("manual");
   const [manualCode, setManualCode] = useState("");
   const [result, setResult] = useState<ScanResult>(null);
@@ -235,6 +237,15 @@ export function QrScannerClient({ canteenId }: { canteenId: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
+  // Search/feed states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [feedOrders, setFeedOrders] = useState(initialOrders);
+
+  // Sync feed on parent updates
+  useEffect(() => {
+    setFeedOrders(initialOrders);
+  }, [initialOrders]);
+
   const reset = useCallback(() => {
     setResult(null);
     setManualCode("");
@@ -242,9 +253,22 @@ export function QrScannerClient({ canteenId }: { canteenId: string }) {
   }, []);
 
   const verify = useCallback(
-    (code: string) => {
+    (code: string, orderId?: string) => {
       const trimmed = code.trim();
       if (!trimmed) return;
+
+      // 1. Zod validation check
+      const payload = {
+        orderId: orderId || null,
+        verificationToken: trimmed,
+      };
+
+      const parseResult = verifyQrCodeSchema.safeParse(payload);
+      if (!parseResult.success) {
+        setResult({ success: false, error: parseResult.error.issues[0]?.message ?? "Verification token is invalid." });
+        return;
+      }
+
       startTransition(async () => {
         const res = await verifyAndCollectQr(trimmed, canteenId);
         setResult(res);
@@ -253,7 +277,7 @@ export function QrScannerClient({ canteenId }: { canteenId: string }) {
     [canteenId],
   );
 
-  // Camera scanning via jsQR (loaded dynamically)
+  // Camera scanner jsQR effect
   useEffect(() => {
     if (mode !== "camera") return;
 
@@ -262,7 +286,6 @@ export function QrScannerClient({ canteenId }: { canteenId: string }) {
 
     const startCamera = async () => {
       try {
-        // Dynamically import jsQR
         jsQR = (await import("jsqr")).default;
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "environment" },
@@ -323,143 +346,202 @@ export function QrScannerClient({ canteenId }: { canteenId: string }) {
     return <ErrorCard error={result.error} onReset={reset} />;
   }
 
+  // Filter orders that are ready or preparing
+  const filteredFeed = feedOrders.filter((o) => {
+    const isCollectible = o.status === "ready" || o.status === "preparing";
+    if (!isCollectible) return false;
+
+    const matchesSearch =
+      o.student?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      o.student?.studentCode?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSearch;
+  });
+
   return (
-    <div className="space-y-4">
-      {/* Mode toggle */}
-      <div
-        className="flex rounded-lg p-1 gap-1 w-fit"
-        style={{ background: "var(--bg-pill)" }}
-      >
-        {(["camera", "manual"] as const).map((m) => (
-          <button
-            key={m}
-            onClick={() => setMode(m)}
-            className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all"
+    <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-8">
+      {/* Left Column: QR Scan inputs */}
+      <div className="space-y-4">
+        <div
+          className="flex rounded-lg p-1 gap-1 w-fit"
+          style={{ background: "var(--bg-pill)" }}
+        >
+          {(["camera", "manual"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-bold uppercase tracking-wider transition-all"
+              style={{
+                background: mode === m ? "var(--bg-primary)" : "transparent",
+                color: mode === m ? "var(--text-primary)" : "var(--text-secondary)",
+                boxShadow: mode === m ? "var(--shadow-pill)" : undefined,
+              }}
+            >
+              {m === "camera" ? <Camera size={13} /> : <Keyboard size={13} />}
+              {m === "camera" ? "Camera Scan" : "Manual Entry"}
+            </button>
+          ))}
+        </div>
+
+        {mode === "camera" ? (
+          <div
+            className="rounded-2xl border overflow-hidden relative aspect-video"
             style={{
-              background: mode === m ? "var(--bg-pill-active)" : "transparent",
-              color:
-                mode === m ? "var(--text-primary)" : "var(--text-secondary)",
-              boxShadow: mode === m ? "var(--shadow-pill)" : undefined,
+              background: "#000",
+              borderColor: "var(--border-card)",
+              boxShadow: "var(--shadow-card)",
             }}
           >
-            {m === "camera" ?
-              <Camera size={15} />
-            : <Keyboard size={15} />}
-            {m === "camera" ? "Camera Scan" : "Manual Entry"}
-          </button>
-        ))}
-      </div>
-
-      {/* Camera view */}
-      {mode === "camera" && (
-        <div
-          className="rounded-2xl border overflow-hidden relative aspect-video"
-          style={{
-            background: "#000",
-            borderColor: "var(--border-card)",
-            boxShadow: "var(--shadow-card)",
-          }}
-        >
-          <video
-            ref={videoRef}
-            className="w-full h-full object-cover"
-            muted
-            playsInline
-          />
-          {/* Scan overlay */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div
-              className="w-56 h-56 rounded-2xl"
-              style={{
-                border: "2px solid rgba(255,255,255,0.8)",
-                boxShadow: "0 0 0 9999px rgba(0,0,0,0.45)",
-              }}
+            <video
+              ref={videoRef}
+              className="w-full h-full object-cover"
+              muted
+              playsInline
             />
-          </div>
-          <div className="absolute bottom-4 left-0 right-0 text-center">
-            <span
-              className="px-3 py-1.5 rounded-full text-xs font-medium"
-              style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}
-            >
-              Point camera at QR code
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Manual entry */}
-      {mode === "manual" && (
-        <div
-          className="rounded-2xl border p-8"
-          style={{
-            background: "var(--bg-card)",
-            borderColor: "var(--border-card)",
-            boxShadow: "var(--shadow-card)",
-          }}
-        >
-          <div className="flex justify-center mb-6">
-            <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center"
-              style={{ background: "rgba(139,92,246,0.12)" }}
-            >
-              <QrCode size={32} style={{ color: "#8b5cf6" }} />
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div
+                className="w-48 h-48 rounded-xl"
+                style={{
+                  border: "2px solid rgba(255,255,255,0.8)",
+                  boxShadow: "0 0 0 9999px rgba(0,0,0,0.5)",
+                }}
+              />
+            </div>
+            <div className="absolute bottom-4 left-0 right-0 text-center">
+              <span
+                className="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                style={{ background: "rgba(0,0,0,0.7)", color: "#fff" }}
+              >
+                Focus camera on order QR
+              </span>
             </div>
           </div>
-
-          <label
-            className="block text-sm font-medium mb-2 text-center"
-            style={{ color: "var(--text-secondary)" }}
-          >
-            Enter QR code or order ID
-          </label>
-          <input
-            ref={inputRef}
-            value={manualCode}
-            onChange={(e) => setManualCode(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && verify(manualCode)}
-            placeholder="Scan or type QR code…"
-            className="w-full text-center text-lg font-mono py-4 px-4 rounded-xl mb-4 outline-none"
+        ) : (
+          <div
+            className="rounded-2xl border p-6 space-y-4"
             style={{
-              background: "var(--bg-secondary)",
-              border: "1px solid var(--border-input)",
-              color: "var(--text-primary)",
-              letterSpacing: "0.05em",
+              background: "var(--bg-card)",
+              borderColor: "var(--border-card)",
+              boxShadow: "var(--shadow-card)",
             }}
-            autoComplete="off"
-            spellCheck={false}
-          />
-
-          <button
-            onClick={() => verify(manualCode)}
-            disabled={!manualCode.trim() || isPending}
-            className="w-full py-3.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 hover:scale-[1.01]"
-            style={{ background: "var(--accent)", color: "var(--accent-text)" }}
           >
-            {isPending ? "Verifying…" : "Verify & Collect"}
-          </button>
+            <div className="flex justify-center">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-purple-500/10 text-purple-600">
+                <QrCode size={24} />
+              </div>
+            </div>
 
-          <p
-            className="text-xs text-center mt-4"
-            style={{ color: "var(--text-muted)" }}
-          >
-            You can also use a Bluetooth QR scanner — it types the code
-            automatically
-          </p>
-        </div>
-      )}
+            <div className="space-y-1.5">
+              <label
+                className="block text-xs font-bold uppercase tracking-wider text-center"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Scan/Type QR Token
+              </label>
+              <input
+                ref={inputRef}
+                value={manualCode}
+                onChange={(e) => setManualCode(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && verify(manualCode)}
+                placeholder="Scan code or type UUID..."
+                className="w-full text-center text-sm font-mono py-3 px-4 rounded-xl border border-(--border-input) bg-(--bg-secondary) text-(--text-primary) outline-none"
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </div>
 
-      {isPending && (
-        <div className="flex items-center justify-center gap-2 py-4">
-          <RefreshCw
-            size={16}
-            className="animate-spin"
-            style={{ color: "var(--text-muted)" }}
-          />
-          <span className="text-sm" style={{ color: "var(--text-muted)" }}>
-            Verifying QR code…
-          </span>
+            <button
+              onClick={() => verify(manualCode)}
+              disabled={!manualCode.trim() || isPending}
+              className="w-full py-3 rounded-xl text-xs font-bold uppercase tracking-widest bg-black text-white dark:bg-white dark:text-black hover:opacity-90 disabled:opacity-40 transition-all"
+            >
+              {isPending ? "Verifying..." : "Verify & Collect"}
+            </button>
+          </div>
+        )}
+
+        {isPending && (
+          <div className="flex items-center justify-center gap-2 py-2">
+            <RefreshCw size={13} className="animate-spin text-(--text-muted)" />
+            <span className="text-xs text-(--text-muted) font-medium">Processing scan validation...</span>
+          </div>
+        )}
+      </div>
+
+      {/* Right Column: Live ready order feed */}
+      <div
+        className="rounded-2xl border p-6 flex flex-col gap-4 shadow-sm"
+        style={{
+          background: "var(--bg-card)",
+          borderColor: "var(--border-card)",
+        }}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-(--border-primary) pb-4">
+          <div>
+            <h3 className="text-sm font-bold uppercase tracking-widest text-(--text-primary)">
+              Ready for Collection Feed
+            </h3>
+            <p className="text-[10px] text-(--text-secondary) mt-0.5">
+              Tap directly on any student record to instantly process verification.
+            </p>
+          </div>
+
+          {/* Feed Search */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-(--border-card) bg-(--bg-secondary)">
+            <Search size={14} className="text-(--text-muted)" />
+            <input
+              type="text"
+              placeholder="Search student..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-transparent text-xs font-bold text-(--text-primary) outline-none placeholder:text-(--text-muted)"
+            />
+          </div>
         </div>
-      )}
+
+        {/* Live List */}
+        <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+          {filteredFeed.map((order) => {
+            const itemCount =
+              order.orderItems?.reduce((s: number, i: any) => s + (i.quantity ?? 1), 0) ?? 0;
+            return (
+              <div
+                key={order.id}
+                className="flex items-center justify-between p-4 rounded-xl border border-(--border-card) bg-(--bg-card) hover:shadow-xs transition-shadow"
+              >
+                <div className="min-w-0 flex-1 pr-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-(--bg-secondary) flex items-center justify-center text-[10px] font-bold text-(--text-primary)">
+                      {order.student?.name?.[0]?.toUpperCase() ?? "?"}
+                    </div>
+                    <p className="text-xs font-bold text-(--text-primary) truncate">
+                      {order.student?.name}
+                    </p>
+                  </div>
+                  <p className="text-[10px] text-(--text-muted) font-mono mt-1">
+                    Code: #{order.student?.studentCode} · {itemCount} items
+                  </p>
+                  <p className="text-[9px] text-amber-500 font-bold uppercase mt-0.5">
+                    Slot: {order.mealSlot ?? "lunch"} · Status: {order.status}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => verify(order.qrCode || "", order.id)}
+                  disabled={isPending}
+                  className="px-3 py-2 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:opacity-90 transition-all active:scale-95 disabled:opacity-40"
+                >
+                  Verify & Collect
+                </button>
+              </div>
+            );
+          })}
+          {filteredFeed.length === 0 && (
+            <div className="text-center py-12 text-(--text-muted) italic text-xs">
+              No orders are currently ready or preparing.
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

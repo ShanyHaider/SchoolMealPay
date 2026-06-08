@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
-import { updateOrderStatus } from "@/db/actions/Staff";
+import { updateOrderStatus } from "@/db/actions/Orders";
 import {
   Clock,
   ChefHat,
@@ -22,35 +22,35 @@ const COLUMNS: {
   bg: string;
   color: string;
 }[] = [
-  {
-    status: "pending",
-    label: "Pending",
-    icon: Clock,
-    bg: "rgba(245,158,11,0.08)",
-    color: "#f59e0b",
-  },
-  {
-    status: "preparing",
-    label: "Preparing",
-    icon: ChefHat,
-    bg: "rgba(59,130,246,0.08)",
-    color: "#3b82f6",
-  },
-  {
-    status: "ready",
-    label: "Ready",
-    icon: PackageCheck,
-    bg: "rgba(139,92,246,0.08)",
-    color: "#8b5cf6",
-  },
-  {
-    status: "delivered",
-    label: "delivered",
-    icon: CheckCircle2,
-    bg: "rgba(34,197,94,0.08)",
-    color: "#22c55e",
-  },
-];
+    {
+      status: "pending",
+      label: "Pending",
+      icon: Clock,
+      bg: "rgba(245,158,11,0.08)",
+      color: "#f59e0b",
+    },
+    {
+      status: "preparing",
+      label: "Preparing",
+      icon: ChefHat,
+      bg: "rgba(59,130,246,0.08)",
+      color: "#3b82f6",
+    },
+    {
+      status: "ready",
+      label: "Ready",
+      icon: PackageCheck,
+      bg: "rgba(139,92,246,0.08)",
+      color: "#8b5cf6",
+    },
+    {
+      status: "delivered",
+      label: "delivered",
+      icon: CheckCircle2,
+      bg: "rgba(34,197,94,0.08)",
+      color: "#22c55e",
+    },
+  ];
 
 const NEXT_STATUS: Partial<Record<Status, Status>> = {
   pending: "preparing",
@@ -80,7 +80,7 @@ function OrderCard({
   isUpdating,
 }: {
   order: any;
-  onStatusChange: (id: string, status: Status) => void;
+  onStatusChange: (id: string, status: Status, order: any) => void;
   isUpdating: boolean;
 }) {
   const nextStatus = NEXT_STATUS[order.status as Status];
@@ -207,7 +207,7 @@ function OrderCard({
         </span>
         {nextStatus && (
           <button
-            onClick={() => onStatusChange(order.id, nextStatus)}
+            onClick={() => onStatusChange(order.id, nextStatus, order)}
             disabled={isUpdating}
             className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 hover:scale-[1.02]"
             style={{ background: "var(--accent)", color: "var(--accent-text)" }}
@@ -244,14 +244,20 @@ export function OrdersBoard({
     setOrders(initialOrders);
   }, [initialOrders]);
 
-  const handleStatusChange = (orderId: string, newStatus: Status) => {
-    // Optimistic update
+  // In handleStatusChange — pass full order context
+  const handleStatusChange = (orderId: string, newStatus: Status, order: any) => {
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)),
     );
     setUpdatingId(orderId);
     startTransition(async () => {
-      await updateOrderStatus(orderId, newStatus );
+      await updateOrderStatus(
+        orderId,
+        newStatus,
+        order.parentId,
+        order.studentId,
+        canteenId,
+      );
       setUpdatingId(null);
       router.refresh();
     });
@@ -281,11 +287,11 @@ export function OrdersBoard({
               background:
                 filterStatus === "all" ?
                   "var(--bg-pill-active)"
-                : "transparent",
+                  : "transparent",
               color:
                 filterStatus === "all" ?
                   "var(--text-primary)"
-                : "var(--text-secondary)",
+                  : "var(--text-secondary)",
               boxShadow:
                 filterStatus === "all" ? "var(--shadow-pill)" : undefined,
             }}
@@ -303,7 +309,7 @@ export function OrdersBoard({
                 color:
                   filterStatus === s ?
                     "var(--text-primary)"
-                  : "var(--text-secondary)",
+                    : "var(--text-secondary)",
                 boxShadow:
                   filterStatus === s ? "var(--shadow-pill)" : undefined,
               }}
@@ -369,7 +375,7 @@ export function OrdersBoard({
                           Empty
                         </p>
                       </div>
-                    : colOrders.map((order) => (
+                      : colOrders.map((order) => (
                         <OrderCard
                           key={order.id}
                           order={order}
@@ -384,7 +390,7 @@ export function OrdersBoard({
             })}
           </div>
           // Filtered single-status view
-        : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {orders
               .filter((o) => o.status === filterStatus)
               .map((order) => (

@@ -1,31 +1,74 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import {
+  clerkMiddleware,
+  createRouteMatcher,
+} from "@clerk/nextjs/server";
 
-// Define which routes are public (e.g., /privacy, /terms)
+import { NextResponse } from "next/server";
+
+// Public routes
+
 const isPublicRoute = createRouteMatcher([
+  "/",
   "/privacy",
   "/terms",
-  "/sign-in(.*)",
-  "/sign-up(.*)",
-  "/",
-  "/api/webhooks(.*)",
-  "/forgot-password",
   "/about",
   "/contact",
   "/pricing",
+  "/account-error",
+  "/forgot-password",
+  "/api/webhooks(.*)",
   "/sso-callback(.*)",
 ]);
 
-export default clerkMiddleware(async (auth, request) => {
-  if (!isPublicRoute(request)) {
-    await auth.protect();
+// Auth pages
+
+const isAuthRoute = createRouteMatcher([
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+]);
+
+export default clerkMiddleware(
+  async (auth, request) => {
+    const { userId } = await auth();
+
+    // ─────────────────────────────────────────
+    // Prevent signed-in users from visiting
+    // auth pages
+    // ─────────────────────────────────────────
+
+    if (isAuthRoute(request) && userId) {
+      return NextResponse.redirect(
+        new URL("/dashboard", request.url)
+      );
+    }
+
+    // ─────────────────────────────────────────
+    // Protect everything else
+    // except public routes
+    // ─────────────────────────────────────────
+
+    if (
+      !isPublicRoute(request) &&
+      !isAuthRoute(request)
+    ) {
+      await auth.protect();
+    }
   }
-});
+);
 
 export const config = {
   matcher: [
-    // Skip Next.js internals and all static files, unless found in search params
+    /*
+     * Skip:
+     * - _next
+     * - static files
+     * - images
+     */
+
     "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    // Always run for API routes
+
+    // Always run for APIs
+
     "/(api|trpc)(.*)",
   ],
 };

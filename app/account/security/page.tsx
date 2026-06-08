@@ -1,12 +1,5 @@
-import { AccountLayout } from "@/Components/UserMenu/AccountPage/AccountLayout";
-import { SecurityTab } from "@/Components/UserMenu/AccountPage/Tabs/SecurityTab";
-
-export const metadata = { title: "Account – Security" };
+import { redirect } from "next/navigation";
 
 export default function SecurityPage() {
-  return (
-    <AccountLayout activeTab="security">
-      <SecurityTab />
-    </AccountLayout>
-  );
+  redirect("/dashboard");
 }

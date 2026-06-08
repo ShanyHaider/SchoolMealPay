@@ -1,30 +1,37 @@
-import { currentUser } from "@clerk/nextjs/server";
+// app/(dashboard)/parent/page.tsx
+
+import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { getUser } from "@/db/queries/Users";
 import { getChildrenByParent } from "@/db/queries/Students";
 import { getOrdersByParent } from "@/db/queries/Orders";
-import {
-  getUnreadNotifications,
-  getPendingApprovals,
-} from "@/db/queries/Notifications";
+import { getAllCanteens } from "@/db/queries/Canteen";
+import { getUnreadNotifications, getPendingApprovals } from "@/db/queries/Notifications";
+import { getParentProSubscription } from "@/db/queries/Subscription";
+
 import { StatsRow } from "./_components/StatsRow";
-import { ChildrenCards } from "./_components/ChildrenCards"; // ← plural, takes children[]
+import { ChildrenCards } from "./_components/ChildrenCards";
 import { RecentOrders } from "./_components/RecentOrders";
-import { PendingApprovals, QuickActions } from "./_components/QuickActions";
+import { QuickActions, PendingApprovals } from "./_components/QuickActions";
+import { getUserFromDb } from "@/features/users/queries";
 
 export default async function ParentDashboardPage() {
-  const clerkUser = await currentUser();
-  if (!clerkUser) redirect("/sign-in");
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
 
-  const dbUser = await getUser(clerkUser.id);
+  const dbUser = await getUserFromDb(userId);
   if (!dbUser) redirect("/sign-in");
 
-  const [children, orders, notifications, approvals] = await Promise.all([
-    getChildrenByParent(dbUser.id),
-    getOrdersByParent(dbUser.id),
-    getUnreadNotifications(dbUser.id),
-    getPendingApprovals(dbUser.id),
-  ]);
+  const [children, orders, notifications, approvals, canteens, sub] =
+    await Promise.all([
+      getChildrenByParent(dbUser.id),
+      getOrdersByParent(dbUser.id),
+      getUnreadNotifications(dbUser.id),
+      getPendingApprovals(dbUser.id),
+      getAllCanteens(),
+      getParentProSubscription(dbUser.id),
+    ]);
+
+  const subscriptionStatus = sub?.status ?? null;
 
   const activeOrders = orders.filter(
     (o) => o.status === "pending" || o.status === "preparing",
@@ -32,55 +39,59 @@ export default async function ParentDashboardPage() {
 
   const thisMonthSpend = orders
     .filter((o) => {
-      const orderDate = new Date(o.orderDate);
+      const d = new Date(o.orderDate);
       const now = new Date();
       return (
-        orderDate.getMonth() === now.getMonth() &&
-        orderDate.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getFullYear() === now.getFullYear() &&
         o.status !== "cancelled"
       );
     })
     .reduce((sum, o) => sum + parseFloat(o.totalAmount), 0);
 
   return (
-    <div className="w-full max-w-6xl mx-auto">
-      <div className="flex flex-col w-full">
-        {/* Header */}
-        <header className="mb-10">
-          <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-3xl font-bold tracking-tight text-(--text-primary)">
-              Good morning, {dbUser.name.split(" ")[0]}
-            </h1>
-            <span className="text-3xl">👋</span>
-          </div>
-          <p className="text-sm md:text-base text-(--text-secondary) font-medium">
-            Here's what's happening with your children today.
-          </p>
-        </header>
+    <div className="max-w-6xl mx-auto space-y-8">
+      {/* Header */}
+      <div>
+        <h1
+          className="text-2xl font-bold tracking-tight"
+          style={{ color: "var(--text-primary)" }}
+        >
+          Good morning, {dbUser.name.split(" ")[0]} 👋
+        </h1>
+        <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+          {new Date().toLocaleDateString("en-US", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })}
+        </p>
+      </div>
 
-        {/* Stats */}
-        <div className="mb-10">
-          <StatsRow
-            childCount={children.length}
-            activeOrderCount={activeOrders.length}
-            monthlySpend={thisMonthSpend}
-            unreadCount={notifications.length}
+      {/* Stats — subscription-aware */}
+      <StatsRow
+        childCount={children.length}
+        activeOrderCount={activeOrders.length}
+        monthlySpend={thisMonthSpend}
+        unreadCount={notifications.length}
+        subscriptionStatus={subscriptionStatus}
+      />
+
+      {/* Main grid */}
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6 items-start">
+        <div className="flex flex-col gap-6">
+          <ChildrenCards
+            children={children}
+            canteens={canteens}
+            parentId={dbUser.id}
           />
+          <RecentOrders orders={orders.slice(0, 5)} />
         </div>
 
-        {/* Main grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-8 items-start">
-          {/* Left column */}
-          <div className="flex flex-col gap-8">
-            <ChildrenCards children={children} />
-            <RecentOrders orders={orders.slice(0, 5)} />
-          </div>
-
-          {/* Right column */}
-          <div className="flex flex-col gap-8">
-            <QuickActions />
-            {approvals.length > 0 && <PendingApprovals approvals={approvals} />}
-          </div>
+        <div className="flex flex-col gap-6">
+          <QuickActions />
+          {approvals.length > 0 && <PendingApprovals approvals={approvals} />}
         </div>
       </div>
     </div>

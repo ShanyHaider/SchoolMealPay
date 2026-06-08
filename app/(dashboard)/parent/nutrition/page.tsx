@@ -1,22 +1,32 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { getUser } from "@/db/queries/Users";
 import { getChildrenByParent } from "@/db/queries/Students";
 import { getOrdersByStudent } from "@/db/queries/Orders";
+import { getDefaultNutritionTarget } from "@/db/queries/Nutrition";
 import Link from "next/link";
 import {
   Info,
   Salad,
-  UserCircle,
   Activity,
   ChevronRight,
   Flame,
   Dna,
   Leaf,
+  Wheat,
+  Droplets,
 } from "lucide-react";
-import { NutrientBar } from "./NutrientBar"; // Separate component below
+import { NutrientBar } from "./NutrientBar";
+import { getUserFromDb } from "@/features/users/queries";
 
-function computeNutritionAverages(orders: any[]) {
+interface NutritionAverages {
+  calories: number;
+  protein: number;
+  fiber: number;
+  carbs: number;
+  fat: number;
+}
+
+function computeNutritionAverages(orders: any[]): NutritionAverages | null {
   const recentOrders = orders
     .filter((o) => o.status === "delivered")
     .slice(0, 30);
@@ -26,6 +36,8 @@ function computeNutritionAverages(orders: any[]) {
   let totalCalories = 0,
     totalProtein = 0,
     totalFiber = 0,
+    totalCarbs = 0,
+    totalFat = 0,
     count = 0;
 
   for (const order of recentOrders) {
@@ -36,26 +48,60 @@ function computeNutritionAverages(orders: any[]) {
       totalCalories += (mi.calories ?? 0) * qty;
       totalProtein += parseFloat(mi.proteinG ?? "0") * qty;
       totalFiber += parseFloat(mi.fiberG ?? "0") * qty;
+      totalCarbs += parseFloat(mi.carbsG ?? "0") * qty;
+      totalFat += parseFloat(mi.fatG ?? "0") * qty;
       count++;
     }
   }
 
   if (count === 0) return null;
+
+  const days = recentOrders.length;
   return {
-    calories: Math.round(totalCalories / recentOrders.length),
-    protein: Math.round(totalProtein / recentOrders.length),
-    fiber: Math.round(totalFiber / recentOrders.length),
+    calories: Math.round(totalCalories / days),
+    protein: Math.round(totalProtein / days),
+    fiber: Math.round(totalFiber / days),
+    carbs: Math.round(totalCarbs / days),
+    fat: Math.round(totalFat / days),
   };
 }
+
+const FALLBACK_TARGETS = {
+  calories: 2000,
+  protein: 50,
+  fiber: 25,
+  carbs: 260,
+  fat: 70,
+};
 
 export default async function NutritionPage() {
   const clerkUser = await currentUser();
   if (!clerkUser) redirect("/sign-in");
-  const dbUser = await getUser(clerkUser.id);
+  const dbUser = await getUserFromDb(clerkUser.id);
   if (!dbUser) redirect("/sign-in");
 
-  const children = await getChildrenByParent(dbUser.id);
+  const [children, dbTarget] = await Promise.all([
+    getChildrenByParent(dbUser.id),
+    getDefaultNutritionTarget(),
+  ]);
+
   const approvedChildren = children.filter((c) => c.status === "approved");
+
+  const targets = {
+    calories: dbTarget?.dailyCalories ?? FALLBACK_TARGETS.calories,
+    protein: dbTarget?.dailyProteinG
+      ? Math.round(parseFloat(dbTarget.dailyProteinG))
+      : FALLBACK_TARGETS.protein,
+    fiber: dbTarget?.dailyFiberG
+      ? Math.round(parseFloat(dbTarget.dailyFiberG))
+      : FALLBACK_TARGETS.fiber,
+    carbs: dbTarget?.dailyCarbsG
+      ? Math.round(parseFloat(dbTarget.dailyCarbsG))
+      : FALLBACK_TARGETS.carbs,
+    fat: dbTarget?.dailyFatG
+      ? Math.round(parseFloat(dbTarget.dailyFatG))
+      : FALLBACK_TARGETS.fat,
+  };
 
   const childOrders = await Promise.all(
     approvedChildren.map(async (link) => ({
@@ -82,8 +128,8 @@ export default async function NutritionPage() {
         </p>
       </div>
 
-      {/* Medical Disclaimer */}
-      <div className="group flex items-start gap-4 p-4 bg-blue-50/50 border border-blue-100 rounded-2xl dark:bg-blue-900/10 dark:border-blue-800/50 transition-colors">
+      {/* Disclaimer */}
+      <div className="flex items-start gap-4 p-4 bg-blue-50/50 border border-blue-100 rounded-2xl dark:bg-blue-900/10 dark:border-blue-800/50">
         <Info className="text-blue-500 shrink-0 mt-0.5" size={20} />
         <p className="text-sm text-blue-700/80 dark:text-blue-300/80 leading-relaxed">
           <strong className="text-blue-800 dark:text-blue-200">
@@ -92,17 +138,19 @@ export default async function NutritionPage() {
           This dashboard provides estimates based on standard recipes. It is
           intended for educational purposes and should not replace professional
           medical advice or nutritional counseling.
+          {dbTarget && (
+            <span className="block mt-1 text-xs opacity-70">
+              Targets based on: {dbTarget.label}
+              {dbTarget.source ? ` (${dbTarget.source})` : ""}
+            </span>
+          )}
         </p>
       </div>
 
-      {approvedChildren.length === 0 ?
+      {approvedChildren.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 bg-(--bg-card) border border-dashed border-(--border-card) rounded-3xl">
           <div className="p-4 bg-(--bg-tertiary) rounded-full mb-4">
-            <Salad
-              size={40}
-              className="text-(--text-muted)"
-              strokeWidth={1.5}
-            />
+            <Salad size={40} className="text-(--text-muted)" strokeWidth={1.5} />
           </div>
           <p className="text-(--text-secondary) font-medium">
             No active student profiles found.
@@ -114,7 +162,8 @@ export default async function NutritionPage() {
             Link a child <ChevronRight size={16} />
           </Link>
         </div>
-      : <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {childOrders.map(({ link, orders }) => {
             const avg = computeNutritionAverages(orders);
             const mealCount = orders
@@ -126,7 +175,7 @@ export default async function NutritionPage() {
                 key={link.student.id}
                 className="group flex flex-col bg-(--bg-card) border border-(--border-card) rounded-3xl p-6 shadow-sm hover:shadow-md transition-all"
               >
-                {/* Child Card Header */}
+                {/* Child header */}
                 <div className="flex items-center justify-between mb-8">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-(--accent) to-green-500 flex items-center justify-center text-white text-lg font-bold shadow-lg shadow-green-500/20">
@@ -137,25 +186,26 @@ export default async function NutritionPage() {
                         {link.student.name}
                       </h3>
                       <p className="text-xs text-(--text-muted) flex items-center gap-1">
-                        <Activity size={12} /> {mealCount} meals analyzed
+                        <Activity size={12} /> {mealCount} meals analysed
                       </p>
                     </div>
                   </div>
                 </div>
 
-                {avg === null ?
+                {avg === null ? (
                   <div className="flex-1 flex flex-col items-center justify-center py-10 text-center">
                     <p className="text-sm text-(--text-muted) px-8">
                       Insufficient data to generate a report. Trends appear
                       after the first few delivered meals.
                     </p>
                   </div>
-                : <div className="space-y-6">
+                ) : (
+                  <div className="space-y-6">
                     <NutrientBar
                       label="Calories"
                       icon={<Flame size={14} />}
                       value={avg.calories}
-                      target={2000}
+                      target={targets.calories}
                       unit="kcal"
                       color="bg-orange-500"
                     />
@@ -163,25 +213,41 @@ export default async function NutritionPage() {
                       label="Protein"
                       icon={<Dna size={14} />}
                       value={avg.protein}
-                      target={50}
+                      target={targets.protein}
                       unit="g"
                       color="bg-blue-500"
+                    />
+                    <NutrientBar
+                      label="Carbohydrates"
+                      icon={<Wheat size={14} />}
+                      value={avg.carbs}
+                      target={targets.carbs}
+                      unit="g"
+                      color="bg-yellow-500"
+                    />
+                    <NutrientBar
+                      label="Fat"
+                      icon={<Droplets size={14} />}
+                      value={avg.fat}
+                      target={targets.fat}
+                      unit="g"
+                      color="bg-purple-500"
                     />
                     <NutrientBar
                       label="Fiber"
                       icon={<Leaf size={14} />}
                       value={avg.fiber}
-                      target={25}
+                      target={targets.fiber}
                       unit="g"
                       color="bg-emerald-500"
                     />
                   </div>
-                }
+                )}
               </div>
             );
           })}
         </div>
-      }
+      )}
     </div>
   );
 }

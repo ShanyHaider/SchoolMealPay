@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowRight } from "lucide-react";
 
 const LINKS = {
@@ -25,6 +25,14 @@ const LINKS = {
 export default function Footer() {
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
+
+  // Initialize state as an empty string to match server prerender HTML safely
+  const [currentYear, setCurrentYear] = useState<number | string>("");
+
+  // Runs strictly on the client side immediately after hydration
+  useEffect(() => {
+    setCurrentYear(new Date().getFullYear());
+  }, []);
 
   return (
     <footer
@@ -116,7 +124,7 @@ export default function Footer() {
               <p className="text-sm font-medium" style={{ color: "#22c55e" }}>
                 ✓ You're subscribed
               </p>
-            : <div className="flex gap-2">
+              : <div className="flex gap-2">
                 <input
                   type="email"
                   value={email}
@@ -180,7 +188,7 @@ export default function Footer() {
         style={{ borderTop: "1px solid var(--divider)" }}
       >
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-          © {new Date().getFullYear()} SchoolMealPay · Rawalpindi, Pakistan
+          © {currentYear || "2026"} SchoolMealPay · Rawalpindi, Pakistan
         </p>
         <div className="flex items-center gap-1">
           <span className="text-xs" style={{ color: "var(--text-muted)" }}>

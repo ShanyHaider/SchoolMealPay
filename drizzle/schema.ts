@@ -43,3 +43,10 @@ export * from "./relations";
 
 // StripeWebhooks
 export * from "./schema/stripeWebhooks";
+
+
+export * from "./schema/staffInvitationTable";
+
+export * from "./schema/schoolProfile";
+
+export * from "./schema/pushSubscriptions"

@@ -1,17 +1,23 @@
+// app/(dashboard)/school-admin/reports/page.tsx
+
+import { requireSchoolFeature } from "@/lib/guards/pageGuards";
 import { getSalesReport } from "@/db/queries/Admin";
 import { ReportsClient } from "./_components/ReportsClient";
+import { connection } from "next/server";
 
-function getDefaultRange() {
+
+
+export default async function ReportsPage() {
+  await requireSchoolFeature("hasAdvancedAnalytics");
+
+  await connection();
+
   const end = new Date();
   const start = new Date();
   start.setDate(start.getDate() - 29);
   const fmt = (d: Date) => d.toISOString().split("T")[0];
-  return { start: fmt(start), end: fmt(end) };
-}
+  const report = await getSalesReport(fmt(start), fmt(end));
 
-export default async function ReportsPage() {
-  const { start, end } = getDefaultRange();
-  const report = await getSalesReport(start, end);
 
   return (
     <div className="space-y-6">
@@ -26,7 +32,9 @@ export default async function ReportsPage() {
           Sales performance, top menu items, and order breakdowns.
         </p>
       </div>
-      <ReportsClient report={report} defaultStart={start} defaultEnd={end} />
+
+      {/* Props match ReportsClient exactly: defaultStart / defaultEnd */}
+      <ReportsClient report={report} defaultStart={fmt(start)} defaultEnd={fmt(end)} />
     </div>
   );
 }

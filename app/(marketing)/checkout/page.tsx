@@ -4,7 +4,7 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { getUserFromDb } from "@/features/users/db";
+import { getUserFromDb } from "@/features/users/queries";
 
 interface Props {
   searchParams: Promise<{ tier?: string; cycle?: string }>;

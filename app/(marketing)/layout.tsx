@@ -1,5 +1,5 @@
 // app/(marketing)/layout.tsx
-import { Navbar } from "@/components/navbar/Navbar";
+import { NavbarServer } from "@/components/navbar/NavbarServer";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -14,7 +14,7 @@ export default function MarketingLayout({
 }) {
   return (
     <>
-      <Navbar />
+      <NavbarServer />
       {/* pt-28 provides the perfect breathing room for the floating navbar */}
       <main>{children}</main>
     </>

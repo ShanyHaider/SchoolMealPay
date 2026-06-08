@@ -13,23 +13,32 @@ import { id, createdAt, updatedAt } from "../schemaHelpers";
 import { usersTable } from "./users";
 
 // ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+export const allergenEnum = pgEnum("allergen", [
+  "nuts",
+  "gluten",
+  "dairy",
+  "eggs",
+  "soy",
+  "shellfish",
+  "fish",
+  "sesame",
+]);
+
+export const linkStatusEnum = pgEnum("link_status", [
+  "pending",
+  "approved",
+  "rejected",
+]);
+
+// ---------------------------------------------------------------------------
 // School profile (SRS-49 to SRS-52)
 // Single-tenant: exactly one row. Seed this on first deploy.
 // Stores everything an admin sets in School Profile Management.
 // ---------------------------------------------------------------------------
-export const schoolProfileTable = pgTable("school_profile", {
-  id,
-  name: varchar().notNull(),
-  address: text(),
-  city: varchar(),
-  phone: varchar(),
-  email: varchar(),
-  logoUrl: varchar("logo_url"),
-  primaryColor: varchar("primary_color").default("#000000"),
-  timezone: varchar().notNull().default("Asia/Karachi"),
-  createdAt,
-  updatedAt,
-});
+
 
 // ---------------------------------------------------------------------------
 // Classes — structured grade/section data managed by school admin.
@@ -44,23 +53,6 @@ export const classesTable = pgTable("classes", {
   createdAt,
   updatedAt,
 });
-
-// ---------------------------------------------------------------------------
-// Allergens — structured enum replaces free-text allergies field.
-// FIX: "nuts, dairy" as a string is not queryable. The canteen order
-// processing screen (SRS-164) highlights allergen orders — it needs
-// to JOIN on a real value, not parse a comma-separated string.
-// ---------------------------------------------------------------------------
-export const allergenEnum = pgEnum("allergen", [
-  "nuts",
-  "gluten",
-  "dairy",
-  "eggs",
-  "soy",
-  "shellfish",
-  "fish",
-  "sesame",
-]);
 
 // ---------------------------------------------------------------------------
 // Students — not users, they don't log in.
@@ -125,12 +117,6 @@ export const childProfilesTable = pgTable("child_profiles", {
 // FIX: added unique constraint — prevents duplicate pending requests
 // for the same parent+student pair.
 // ---------------------------------------------------------------------------
-export const linkStatusEnum = pgEnum("link_status", [
-  "pending",
-  "approved",
-  "rejected",
-]);
-
 export const parentChildLinksTable = pgTable(
   "parent_child_links",
   {

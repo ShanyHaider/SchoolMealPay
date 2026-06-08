@@ -79,7 +79,7 @@ function OrderRow({ order }: { order: Order }) {
           {config.label}
         </span>
         <span className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
-          ${parseFloat(order.totalAmount).toFixed(2)}
+          PKR {Math.round(parseFloat(order.totalAmount))}
         </span>
       </div>
     </Link>
@@ -118,7 +118,7 @@ export function RecentOrders({ orders }: RecentOrdersProps) {
             Browse menu
           </Link>
         </div>
-      : <div className="flex flex-col gap-0.5">
+        : <div className="flex flex-col gap-0.5">
           {orders.map((order) => (
             <OrderRow key={order.id} order={order} />
           ))}

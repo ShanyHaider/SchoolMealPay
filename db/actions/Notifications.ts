@@ -59,17 +59,17 @@ export async function markAllNotificationsRead(userId: string) {
 
 // ─── Meal Feedback ─────────────────────────────────────────────
 
-export async function submitMealFeedback(
-  feedback: typeof mealFeedbackTable.$inferInsert,
-) {
-  const [created] = await db
-    .insert(mealFeedbackTable)
-    .values(feedback)
-    .returning();
+// export async function submitMealFeedback(
+//   feedback: typeof mealFeedbackTable.$inferInsert,
+// ) {
+//   const [created] = await db
+//     .insert(mealFeedbackTable)
+//     .values(feedback)
+//     .returning();
 
-  revalidateMealFeedbackCache(created.orderId, created.studentId);
-  return created;
-}
+//   revalidateMealFeedbackCache(created.orderId, created.studentId);
+//   return created;
+// }
 
 export async function respondToFeedback(
   feedbackId: string,
@@ -87,17 +87,17 @@ export async function respondToFeedback(
 
 // ─── System Feedback ───────────────────────────────────────────
 
-export async function submitSystemFeedback(
-  feedback: typeof systemFeedbackTable.$inferInsert,
-) {
-  const [created] = await db
-    .insert(systemFeedbackTable)
-    .values(feedback)
-    .returning();
+// export async function submitSystemFeedback(
+//   feedback: typeof systemFeedbackTable.$inferInsert,
+// ) {
+//   const [created] = await db
+//     .insert(systemFeedbackTable)
+//     .values(feedback)
+//     .returning();
 
-  revalidateSystemFeedbackCache(created.userId);
-  return created;
-}
+//   revalidateSystemFeedbackCache(created.userId);
+//   return created;
+// }
 
 // ─── Spending Approvals ────────────────────────────────────────
 

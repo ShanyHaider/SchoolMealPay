@@ -1,5 +1,8 @@
 "use client";
 
+// app/(dashboard)/parent/_components/ParentSidebar.tsx
+// Subscription-aware — mirrors SchoolAdminSidebar's premium lock pattern.
+
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -16,6 +19,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Menu,
+  Sparkles,
+  Lock,
 } from "lucide-react";
 import {
   Tooltip,
@@ -32,52 +37,87 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import type { usersTable } from "@/drizzle/schema";
+import { canParentAccess } from "@/data/subscriptionTiers";
+import { SettingsTab, SidebarProfilePopover, SidebarSettingsModal } from "../../_components/SidebarProfilePopover";
 
 type User = typeof usersTable.$inferSelect;
 
-const NAV_ITEMS = [
-  { label: "Dashboard", href: "/parent", icon: LayoutDashboard },
+type ParentFeature =
+  | "hasNutritionDashboard"
+  | "hasAiMealPlanning"
+  | "hasHealthTrends"
+  | "hasPrioritySupport";
+
+type NavItem = {
+  label: string;
+  href: string;
+  icon: React.ElementType;
+  exact?: boolean;
+  requiredFeature?: ParentFeature;
+  premium?: boolean;
+};
+
+const NAV_ITEMS: NavItem[] = [
+  { label: "Dashboard", href: "/parent", icon: LayoutDashboard, exact: true },
   { label: "Children", href: "/parent/children", icon: Users },
   { label: "Menu", href: "/parent/menu", icon: UtensilsCrossed },
   { label: "Orders", href: "/parent/orders", icon: ShoppingBag },
-  { label: "Nutrition", href: "/parent/nutrition", icon: Salad },
-  { label: "Spending", href: "/parent/spending", icon: Wallet },
-  { label: "Notifications", href: "/parent/notifications", icon: Bell },
-  { label: "Settings", href: "/parent/settings", icon: Settings },
-] as const;
+  {
+    label: "Nutrition",
+    href: "/parent/nutrition",
+    icon: Salad,
+    requiredFeature: "hasNutritionDashboard",
+    premium: true,
+  },
+  { label: "Wallet", href: "/parent/wallet", icon: Wallet },
 
-export function ParentSidebar({ user }: { user: User }) {
+];
+
+// ─── Root export ──────────────────────────────────────────────────────────────
+
+export function ParentSidebar({
+  user,
+  subscriptionStatus,
+  notificationsTab,
+  billingTab,
+}: {
+  user: User;
+  /** Stripe subscription status: "active" | "trialing" | "canceled" | null */
+  subscriptionStatus: string | null | undefined;
+  notificationsTab: React.ReactNode;
+  billingTab: React.ReactNode;
+}) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const pathname = usePathname();
 
   return (
     <TooltipProvider delayDuration={0}>
-      {/* Mobile Trigger - Aligned centered to match Topbar baseline heights */}
+      {/* Mobile Trigger */}
       <div className="lg:hidden fixed top-3.5 left-4 z-50 flex items-center h-9">
         <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
           <SheetTrigger asChild>
-            <button className="p-2 bg-(--bg-card) border border-(--border-card) rounded-lg shadow-sm active:scale-95 transition-transform flex items-center justify-center">
-              <Menu className="w-5 h-5 text-(--text-primary)" />
+            <button className="p-2 bg-[var(--bg-card)] border border-[var(--border-card)] rounded-lg shadow-sm active:scale-95 transition-transform flex items-center justify-center cursor-pointer">
+              <Menu className="w-5 h-5 text-[var(--text-primary)]" />
             </button>
           </SheetTrigger>
           <SheetContent
             side="left"
-            className="p-0 w-[280px] bg-(--bg-primary) border-r-(--border-primary)"
+            className="p-0 w-[280px] bg-[var(--bg-primary)] border-r border-[var(--border-primary)]"
           >
-            {/* Accessibility Titles for Radix Primitives */}
             <div className="sr-only">
               <SheetTitle>Parent Navigation Menu</SheetTitle>
               <SheetDescription>
-                Review meal menus, monitor children account metrics, and update
-                allowances.
+                Review meal menus, monitor children account metrics, and update allowances.
               </SheetDescription>
             </div>
-
             <SidebarInner
               user={user}
               pathname={pathname}
+              subscriptionStatus={subscriptionStatus}
               closeMobileMenu={() => setIsMobileOpen(false)}
+              notificationsTab={notificationsTab}
+              billingTab={billingTab}
             />
           </SheetContent>
         </Sheet>
@@ -86,47 +126,80 @@ export function ParentSidebar({ user }: { user: User }) {
       {/* Desktop Sidebar */}
       <motion.aside
         initial={false}
-        animate={{ width: isCollapsed ? 80 : 260 }}
-        className="fixed top-0 left-0 bottom-0 hidden lg:flex flex-col bg-(--bg-primary) border-r border-(--border-primary) z-40 overflow-hidden"
+        animate={{ width: isCollapsed ? 82 : 270 }}
+        className="fixed top-0 left-0 bottom-0 hidden lg:flex flex-col bg-[var(--bg-primary)] border-r border-[var(--border-primary)] z-40 overflow-hidden"
       >
         <SidebarInner
           user={user}
           pathname={pathname}
+          subscriptionStatus={subscriptionStatus}
           isCollapsed={isCollapsed}
           onToggle={() => setIsCollapsed(!isCollapsed)}
+          notificationsTab={notificationsTab}
+          billingTab={billingTab}
         />
       </motion.aside>
 
-      {/* Content Spacer */}
+      {/* Spacer */}
       <div
         className={cn(
           "hidden lg:block transition-[width] duration-300 ease-in-out shrink-0",
-          isCollapsed ? "w-[80px]" : "w-[260px]",
+          isCollapsed ? "w-[82px]" : "w-[270px]",
         )}
       />
     </TooltipProvider>
   );
 }
 
+// ─── Inner Sidebar ────────────────────────────────────────────────────────────
+
 function SidebarInner({
   user,
   pathname,
+  subscriptionStatus,
   isCollapsed = false,
   onToggle,
   closeMobileMenu,
+  notificationsTab,
+  billingTab,
 }: {
   user: User;
   pathname: string;
+  subscriptionStatus: string | null | undefined;
   isCollapsed?: boolean;
   onToggle?: () => void;
   closeMobileMenu?: () => void;
+  notificationsTab: React.ReactNode;
+  billingTab: React.ReactNode;
 }) {
+  const isPro =
+    subscriptionStatus === "active" || subscriptionStatus === "trialing";
+
+
+  // Billing modal state — owned here so the callout can trigger it
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
+
+  const openBilling = () => {
+    setActiveTab("billing");
+    setSettingsOpen(true);
+  };
   return (
     <div className="flex flex-col h-full py-3 px-3">
+
+      {/* ── ADD THIS ── */}
+      <SidebarSettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        initialTab={activeTab}
+        notificationsTab={notificationsTab}
+        billingTab={billingTab}
+      />
+
       {/* Header */}
       <div
         className={cn(
-          "flex items-center mb-6 px-3 transition-all duration-300 min-h-[40px]",
+          "flex items-center mb-6 px-3 transition-all duration-300 min-h-[44px]",
           isCollapsed ? "justify-center" : "justify-between",
         )}
       >
@@ -139,12 +212,17 @@ function SidebarInner({
               exit={{ opacity: 0, x: -10 }}
               className="flex items-center gap-3 shrink-0"
             >
-              <div className="w-8 h-8 bg-(--accent) text-(--accent-text) rounded-lg flex items-center justify-center font-bold shrink-0 shadow-md">
+              <div className="w-9 h-9 bg-[var(--accent)] text-[var(--accent-text)] rounded-xl flex items-center justify-center font-bold shadow-md">
                 SM
               </div>
-              <span className="font-semibold text-(--text-primary) whitespace-nowrap tracking-tight">
-                SchoolMealPay
-              </span>
+              <div className="flex flex-col leading-none">
+                <span className="font-semibold text-[var(--text-primary)]">
+                  SchoolMealPay
+                </span>
+                <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)] font-medium mt-1">
+                  Parent Portal
+                </span>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -153,121 +231,165 @@ function SidebarInner({
           <button
             onClick={onToggle}
             className={cn(
-              "p-2 hover:bg-(--bg-tertiary) rounded-md text-(--text-muted) hover:text-(--text-primary) transition-colors",
+              "p-2 hover:bg-[var(--bg-tertiary)] rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer",
               isCollapsed && "mx-auto",
             )}
           >
-            {isCollapsed ?
-              <PanelLeftOpen size={22} />
-            : <PanelLeftClose size={20} />}
+            {isCollapsed ? <PanelLeftOpen size={21} /> : <PanelLeftClose size={21} />}
           </button>
         )}
       </div>
 
-      {/* Navigation Links */}
-      <nav className="flex-1 space-y-1.5 px-1">
+      {/* Navigation */}
+      <nav className="flex-1 space-y-1.5 px-1 overflow-y-auto">
         {NAV_ITEMS.map((item) => {
           const isActive =
-            item.href === "/parent" ?
-              pathname === "/parent"
-            : pathname.startsWith(item.href);
+            item.exact
+              ? pathname === item.href
+              : pathname === item.href || pathname.startsWith(item.href + "/");
+
+          const hasAccess =
+            !item.requiredFeature ||
+            canParentAccess(item.requiredFeature, subscriptionStatus);
+
           const Icon = item.icon;
 
           return (
-            <Tooltip key={item.href}>
-              <TooltipTrigger asChild>
-                <Link
-                  href={item.href}
-                  onClick={closeMobileMenu}
-                  className={cn(
-                    "relative flex items-center p-3 rounded-xl transition-all duration-200 group",
-                    isActive ?
-                      "text-(--text-primary)"
-                    : "text-(--text-secondary) hover:bg-(--bg-tertiary) hover:text-(--text-primary)",
-                    isCollapsed ? "justify-center" : "gap-3",
-                  )}
-                >
-                  <Icon
-                    size={22}
-                    className={cn(
-                      "shrink-0 relative z-30 transition-transform duration-200 group-hover:scale-110",
-                      isActive ? "text-(--accent)" : "opacity-80",
-                    )}
-                  />
-
-                  {!isCollapsed && (
-                    <motion.span
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="text-[14px] font-medium z-10 whitespace-nowrap"
+            <div key={item.href} className="relative">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  {hasAccess ? (
+                    <Link
+                      href={item.href}
+                      onClick={closeMobileMenu}
+                      className={cn(
+                        "relative flex items-center rounded-xl p-3 transition-all duration-200 group overflow-hidden",
+                        isCollapsed ? "justify-center" : "gap-3",
+                        isActive
+                          ? "text-[var(--text-primary)] font-semibold"
+                          : "text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]",
+                      )}
                     >
-                      {item.label}
-                    </motion.span>
+                      {isActive && (
+                        <motion.div
+                          layoutId="active-pill-parent"
+                          className="absolute inset-0 bg-[var(--bg-tertiary)] border border-[var(--border-card)] rounded-xl z-0 shadow-sm"
+                          transition={{ type: "spring", bounce: 0.15, duration: 0.5 }}
+                        />
+                      )}
+                      <Icon
+                        size={21}
+                        className={cn(
+                          "relative z-10 shrink-0 transition-transform duration-200 group-hover:scale-105",
+                          isActive ? "text-[var(--accent)]" : "opacity-85",
+                        )}
+                      />
+                      {!isCollapsed && (
+                        <>
+                          <motion.span
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="relative z-10 text-[14px] font-medium whitespace-nowrap"
+                          >
+                            {item.label}
+                          </motion.span>
+                          {item.premium && (
+                            <div className="ml-auto relative z-10 flex items-center gap-1 rounded-full border border-[var(--border-card)] px-2 py-0.5 bg-[var(--bg-primary)]">
+                              <Sparkles size={10} className="text-[var(--accent)]" />
+                              <span className="text-[9px] font-bold uppercase tracking-wide">
+                                Pro
+                              </span>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </Link>
+                  ) : (
+                    // Locked item — navigates to billing with reason param
+                    <Link
+                      href={`/parent/settings?tab=billing&reason=${item.requiredFeature}`}
+                      onClick={closeMobileMenu}
+                      className={cn(
+                        "w-full relative flex items-center rounded-xl p-3 transition-all duration-200 opacity-50 hover:opacity-70",
+                        isCollapsed ? "justify-center" : "gap-3 justify-between",
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Icon size={21} className="shrink-0 text-[var(--text-muted)]" />
+                        {!isCollapsed && (
+                          <span className="text-[14px] font-medium text-[var(--text-muted)]">
+                            {item.label}
+                          </span>
+                        )}
+                      </div>
+                      {!isCollapsed && (
+                        <div className="flex items-center gap-1 rounded-full border border-[var(--border-card)] px-2 py-0.5 bg-[var(--bg-secondary)]">
+                          <Lock size={10} className="text-[var(--text-muted)]" />
+                          <span className="text-[9px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
+                            Pro
+                          </span>
+                        </div>
+                      )}
+                    </Link>
                   )}
-
-                  {/* Active Background Pill */}
-                  {isActive && (
-                    <motion.div
-                      layoutId="active-pill-parent"
-                      className="absolute inset-0 bg-(--bg-tertiary) rounded-xl z-0 border border-(--border-card) shadow-sm"
-                      transition={{
-                        type: "spring",
-                        bounce: 0.15,
-                        duration: 0.5,
-                      }}
-                    />
-                  )}
-                </Link>
-              </TooltipTrigger>
-
-              {isCollapsed && (
+                </TooltipTrigger>
                 <TooltipContent
                   side="right"
-                  sideOffset={15}
-                  className="bg-zinc-900 text-white border-none shadow-xl px-3 py-1.5 text-xs font-semibold"
+                  sideOffset={12}
+                  className="bg-zinc-950 text-zinc-50 border border-zinc-800 shadow-xl px-3 py-1.5 text-xs font-medium rounded-lg"
                 >
-                  {item.label}
+                  {!hasAccess
+                    ? "Upgrade to Parent Pro to unlock this feature"
+                    : item.label}
                 </TooltipContent>
-              )}
-            </Tooltip>
+              </Tooltip>
+            </div>
           );
         })}
       </nav>
 
-      {/* User Section */}
-      <div
-        className={cn(
-          "mt-auto pt-3 border-t border-(--border-primary) flex items-center px-2 transition-all duration-300",
-          isCollapsed ? "justify-center" : "gap-3",
-        )}
-      >
-        <div className="w-10 h-10 rounded-full bg-zinc-800 border border-(--border-primary) flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
-          {user.imageUrl ?
-            <img
-              src={user.imageUrl}
-              alt={user.name}
-              className="w-full h-full object-cover"
-            />
-          : <span className="text-sm font-bold text-white uppercase">
-              {user.name?.[0] || "P"}
-            </span>
-          }
-        </div>
-
-        {!isCollapsed && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex flex-col min-w-0"
+      {/* Upgrade callout — only shown when not Pro and sidebar is expanded */}
+      {!isPro && !isCollapsed && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-4 rounded-2xl border border-[var(--border-card)] bg-[var(--bg-secondary)] p-4"
+        >
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[var(--accent)] text-[var(--accent-text)] flex items-center justify-center shrink-0">
+              <Sparkles size={18} />
+            </div>
+            <div className="min-w-0">
+              <h4 className="text-sm font-semibold text-[var(--text-primary)]">
+                Upgrade to Pro
+              </h4>
+              <p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">
+                Unlock AI nutrition tracking, meal planning suggestions, and health trend reports.
+              </p>
+            </div>
+          </div>
+          {/* Replace <Link> with a button */}
+          <button
+            onClick={() => {
+              setActiveTab("billing");
+              setSettingsOpen(true);
+            }}
+            className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-[var(--accent)] px-3 py-2.5 text-sm font-medium text-[var(--accent-text)] transition-opacity hover:opacity-90 cursor-pointer"
           >
-            <span className="text-sm font-semibold text-(--text-primary) truncate leading-none mb-1">
-              {user.name}
-            </span>
-            <span className="text-[10px] text-(--text-muted) uppercase tracking-widest font-bold">
-              Parent
-            </span>
-          </motion.div>
-        )}
+            Upgrade Plan
+          </button>
+        </motion.div>
+      )}
+
+      {/* Footer profile */}
+      <div className="mt-4 pt-4 border-t border-[var(--border-primary)]">
+        <SidebarProfilePopover
+          user={user}
+          role="Parent"
+          isCollapsed={isCollapsed}
+          notificationsTab={notificationsTab}
+          billingTab={billingTab}
+        />
       </div>
     </div>
   );

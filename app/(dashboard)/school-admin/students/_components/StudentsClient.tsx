@@ -1,54 +1,39 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import {
-  createStudent,
-  deleteStudent,
-  updateStudent,
-  resolveParentLink,
-} from "@/db/actions/Admin";
-import {
-  Search,
-  Plus,
-  Trash2,
-  CheckCircle,
-  XCircle,
-  ChevronDown,
-  UserPlus,
-  AlertCircle,
-} from "lucide-react";
+import { useRef, useState, useTransition } from "react";
+import { Search, Plus, Upload, Loader2, UserPlus } from "lucide-react";
+import { createStudent } from "@/db/actions/admin/Student";
+import type {
+  getAllStudents,
+  getPendingParentLinks,
+  getAllClasses,
+} from "@/db/queries/Admin";
+import { StudentRow } from "./StudentRow";
+import { StudentModal } from "./StudentModal";
+import { PendingLinksPanel } from "./PendingLinksPanel";
+import { ServerError, isValidUrl } from "./Shared";
+import { useToast, ToastContainer } from "../../../../../components/useToast";
 
-const ALLERGEN_COLORS: Record<string, string> = {
-  nuts: "#f59e0b",
-  gluten: "#f97316",
-  dairy: "#3b82f6",
-  eggs: "#eab308",
-  soy: "#84cc16",
-  shellfish: "#06b6d4",
-  fish: "#6366f1",
-};
+type Student = Awaited<ReturnType<typeof getAllStudents>>[number];
+type PendingLink = Awaited<ReturnType<typeof getPendingParentLinks>>[number];
+type Class = Awaited<ReturnType<typeof getAllClasses>>[number];
 
-export function StudentsClient({
-  students,
-  pendingLinks,
-  classes,
-}: {
-  students: any[];
-  pendingLinks: any[];
-  classes: any[];
-}) {
+interface StudentsClientProps {
+  students: Student[];
+  pendingLinks: PendingLink[];
+  classes: Class[];
+}
+
+export function StudentsClient({ students, pendingLinks, classes }: StudentsClientProps) {
   const [tab, setTab] = useState<"students" | "pending">("students");
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [csvError, setCsvError] = useState("");
+  const [isCsvPending, startCsvTransition] = useTransition();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Add student form state
-  const [form, setForm] = useState({
-    name: "",
-    studentCode: "",
-    classId: "",
-  });
-  const [formError, setFormError] = useState("");
+  const { toasts, toast, dismiss } = useToast();
 
   const filtered = students.filter(
     (s) =>
@@ -57,488 +42,297 @@ export function StudentsClient({
       s.class?.grade?.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const handleAddStudent = () => {
-    if (!form.name.trim() || !form.studentCode.trim()) {
-      setFormError("Name and student code are required.");
-      return;
-    }
-    setFormError("");
-    startTransition(async () => {
-      await createStudent({
-        name: form.name.trim(),
-        studentCode: form.studentCode.trim(),
-        classId: form.classId || undefined,
+  const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setCsvError("");
+    const reader = new FileReader();
+
+    reader.onload = async (event) => {
+      const text = event.target?.result as string;
+      if (!text) return;
+
+      const lines = text
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter(Boolean);
+
+      if (lines.length <= 1) {
+        setCsvError("The selected CSV file has no student data records.");
+        return;
+      }
+
+      const headers = lines[0]
+        .toLowerCase()
+        .split(",")
+        .map((h) => h.trim().replace(/["']/g, ""));
+
+      const nameIdx = headers.indexOf("name");
+      const codeIdx = headers.indexOf("studentcode");
+      const gradeIdx = headers.indexOf("grade");
+      const sectionIdx = headers.indexOf("section");
+      const imageIdx = headers.findIndex(
+        (h) => h === "imageurl" || h === "image" || h === "avatar" || h === "photo",
+      );
+
+      if (nameIdx === -1 || codeIdx === -1) {
+        setCsvError("CSV missing required columns: 'name' and 'studentCode'.");
+        return;
+      }
+
+      startCsvTransition(async () => {
+        let successCount = 0;
+        const errors: string[] = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const row = lines[i]
+            .split(",")
+            .map((cell) => cell.trim().replace(/["']/g, ""));
+
+          if (row.length < 2) continue;
+
+          const studentName = row[nameIdx];
+          const rawCode = row[codeIdx];
+
+          if (!studentName || !rawCode) {
+            errors.push(`Row ${i + 1}: missing required values.`);
+            continue;
+          }
+
+          const imageUrl =
+            imageIdx !== -1 && row[imageIdx] && isValidUrl(row[imageIdx])
+              ? row[imageIdx]
+              : null;
+
+          let classId: string | undefined;
+          if (gradeIdx !== -1 && sectionIdx !== -1) {
+            const matched = classes.find(
+              (c) =>
+                c.grade.toLowerCase() === row[gradeIdx]?.toLowerCase() &&
+                c.section.toLowerCase() === row[sectionIdx]?.toLowerCase(),
+            );
+            if (matched) classId = matched.id;
+          }
+
+          try {
+            await createStudent({
+              name: studentName,
+              studentCode: rawCode.toUpperCase(),
+              classId,
+              imageUrl,
+              allergenIds: [],
+            });
+            successCount++;
+          } catch (err: any) {
+            errors.push(
+              `Row ${i + 1} (${studentName}): ${err?.message ?? "insertion failed"}`,
+            );
+          }
+        }
+
+        if (errors.length > 0) {
+          setCsvError(
+            `Imported ${successCount} students. Failures:\n${errors.slice(0, 3).join("; ")}`,
+          );
+        } else {
+          setCsvError("");
+          toast(
+            successCount === 1
+              ? "1 student imported successfully."
+              : `${successCount} students imported successfully.`,
+            "success",
+          );
+        }
+
+        if (fileInputRef.current) fileInputRef.current.value = "";
       });
-      setForm({ name: "", studentCode: "", classId: "" });
-      setShowAdd(false);
-    });
-  };
+    };
 
-  const handleDelete = (id: string) => {
-    if (!confirm("Delete this student? This cannot be undone.")) return;
-    startTransition(async () => {
-      await deleteStudent(id);
-    });
-  };
-
-  const handleResolveLink = (id: string, decision: "approved" | "rejected") => {
-    startTransition(async () => {
-      await resolveParentLink(id, decision);
-    });
-  };
-
-  const inputStyle = {
-    background: "var(--bg-secondary)",
-    border: "1px solid var(--border-input)",
-    borderRadius: 8,
-    color: "var(--text-primary)",
-    fontSize: 14,
-    padding: "9px 12px",
-    width: "100%",
-    outline: "none",
-    fontFamily: "inherit",
-  } as React.CSSProperties;
-
-  const selectStyle = {
-    ...inputStyle,
-    cursor: "pointer",
+    reader.readAsText(file);
   };
 
   return (
-    <div className="space-y-4">
-      {/* Tabs + controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <div
-          className="flex rounded-lg p-1 gap-1"
-          style={{ background: "var(--bg-pill)" }}
-        >
-          {(["students", "pending"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className="px-4 py-1.5 rounded-md text-sm font-medium transition-all capitalize"
-              style={{
-                background: tab === t ? "var(--bg-pill-active)" : "transparent",
-                color:
-                  tab === t ? "var(--text-primary)" : "var(--text-secondary)",
-                boxShadow: tab === t ? "var(--shadow-pill)" : undefined,
-              }}
-            >
-              {t === "pending" ?
-                `Pending Links (${pendingLinks.length})`
-              : "All Students"}
-            </button>
-          ))}
-        </div>
+    <>
+      <div className="space-y-4 max-w-full overflow-hidden">
+        {csvError && <ServerError message={csvError} />}
 
-        <div className="flex items-center gap-2 ml-auto">
+        {/* Tab Controls + Actions Toolbar */}
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div
+            className="flex rounded-lg p-1 w-full lg:w-auto"
+            style={{ background: "var(--bg-tertiary)" }}
+          >
+            {(["students", "pending"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className="flex-1 lg:flex-none text-center rounded-md px-4 py-1.5 text-sm font-medium transition-all capitalize cursor-pointer"
+                style={{
+                  background: tab === t ? "var(--bg-card)" : "transparent",
+                  color: tab === t ? "var(--text-primary)" : "var(--text-secondary)",
+                  boxShadow: tab === t ? "var(--shadow-card)" : undefined,
+                }}
+              >
+                {t === "pending"
+                  ? `Pending (${pendingLinks.length})`
+                  : "All students"}
+              </button>
+            ))}
+          </div>
+
           {tab === "students" && (
-            <>
-              <div className="relative">
-                <Search
-                  size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2"
-                  style={{ color: "var(--text-muted)" }}
-                />
+            <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center sm:w-full lg:w-auto">
+              {/* Search */}
+              <div
+                className="flex items-center gap-2 rounded-lg border px-3 py-1.5 w-full sm:w-64"
+                style={{
+                  borderColor: "var(--border-input)",
+                  background: "var(--bg-secondary)",
+                }}
+              >
+                <Search size={14} className="shrink-0" style={{ color: "var(--text-muted)" }} />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search students..."
-                  className="pl-9 pr-4 py-2 text-sm rounded-lg"
-                  style={{
-                    background: "var(--bg-secondary)",
-                    border: "1px solid var(--border-input)",
-                    color: "var(--text-primary)",
-                    outline: "none",
-                    width: 220,
-                  }}
+                  placeholder="Search students…"
+                  className="bg-transparent text-sm outline-hidden w-full"
+                  style={{ color: "var(--text-primary)" }}
                 />
               </div>
-              <button
-                onClick={() => setShowAdd(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-                style={{
-                  background: "var(--accent)",
-                  color: "var(--accent-text)",
-                  boxShadow: "var(--shadow-btn)",
-                }}
-              >
-                <Plus size={15} />
-                Add Student
-              </button>
-            </>
+
+              {/* Action buttons */}
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept=".csv"
+                  onChange={handleCsvUpload}
+                  className="hidden"
+                  id="student-csv-file"
+                  disabled={isCsvPending}
+                />
+                <label
+                  htmlFor="student-csv-file"
+                  className="flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium cursor-pointer transition-all hover:bg-[var(--bg-secondary)]"
+                  style={{
+                    borderColor: "var(--border-input)",
+                    color: "var(--text-secondary)",
+                  }}
+                >
+                  {isCsvPending ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Upload size={14} />
+                  )}
+                  <span>Import CSV</span>
+                </label>
+
+                <button
+                  onClick={() => setShowAdd(true)}
+                  className="flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium cursor-pointer"
+                  style={{ background: "var(--accent)", color: "var(--accent-text)" }}
+                >
+                  <Plus size={15} /> <span>Add</span>
+                </button>
+              </div>
+            </div>
           )}
         </div>
-      </div>
 
-      {/* Add student modal */}
-      {showAdd && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        {/* Student list */}
+        {tab === "students" && (
           <div
-            className="absolute inset-0"
-            style={{ background: "rgba(0,0,0,0.5)" }}
-            onClick={() => setShowAdd(false)}
-          />
-          <div
-            className="relative w-full max-w-md rounded-2xl p-6 z-10"
+            className="rounded-xl border overflow-hidden w-full"
             style={{
               background: "var(--bg-card)",
-              border: "1px solid var(--border-card)",
+              borderColor: "var(--border-card)",
               boxShadow: "var(--shadow-card)",
             }}
           >
-            <h2
-              className="text-lg font-semibold mb-5"
-              style={{ color: "var(--text-primary)" }}
-            >
-              Add Student
-            </h2>
-            {formError && (
-              <div
-                className="flex items-center gap-2 p-3 rounded-lg mb-4 text-sm"
-                style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}
-              >
-                <AlertCircle size={14} /> {formError}
+            {filtered.length === 0 ? (
+              <div className="py-16 text-center">
+                <UserPlus size={32} className="mx-auto mb-3" style={{ color: "var(--text-muted)" }} />
+                <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                  {search ? "No students match your search." : "No students enrolled yet."}
+                </p>
               </div>
-            )}
-            <div className="space-y-3">
-              <div>
-                <label
-                  className="block text-xs font-medium mb-1.5"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Full Name *
-                </label>
-                <input
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="e.g. Ahmed Khan"
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label
-                  className="block text-xs font-medium mb-1.5"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Student Code *
-                </label>
-                <input
-                  value={form.studentCode}
-                  onChange={(e) =>
-                    setForm({ ...form, studentCode: e.target.value })
-                  }
-                  placeholder="e.g. STU-2024-001"
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label
-                  className="block text-xs font-medium mb-1.5"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Class (optional)
-                </label>
-                <select
-                  value={form.classId}
-                  onChange={(e) =>
-                    setForm({ ...form, classId: e.target.value })
-                  }
-                  style={selectStyle}
-                >
-                  <option value="">No class assigned</option>
-                  {classes.map((cls) => (
-                    <option key={cls.id} value={cls.id}>
-                      Grade {cls.grade} — Section {cls.section}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="flex gap-2 mt-5">
-              <button
-                onClick={() => {
-                  setShowAdd(false);
-                  setFormError("");
-                }}
-                className="flex-1 py-2 rounded-lg text-sm font-medium"
-                style={{
-                  background: "var(--bg-tertiary)",
-                  color: "var(--text-secondary)",
-                  border: "1px solid var(--border-input)",
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddStudent}
-                disabled={isPending}
-                className="flex-1 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition-all"
-                style={{
-                  background: "var(--accent)",
-                  color: "var(--accent-text)",
-                }}
-              >
-                {isPending ? "Adding..." : "Add Student"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Students list */}
-      {tab === "students" && (
-        <div
-          className="rounded-xl border overflow-hidden"
-          style={{
-            background: "var(--bg-card)",
-            borderColor: "var(--border-card)",
-            boxShadow: "var(--shadow-card)",
-          }}
-        >
-          {filtered.length === 0 ?
-            <div className="py-16 text-center">
-              <UserPlus
-                size={32}
-                className="mx-auto mb-3"
-                style={{ color: "var(--text-muted)" }}
-              />
-              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                {search ?
-                  "No students match your search."
-                : "No students enrolled yet."}
-              </p>
-            </div>
-          : <table className="w-full text-sm">
-              <thead>
-                <tr style={{ borderBottom: "1px solid var(--border-primary)" }}>
-                  {[
-                    "Student",
-                    "Code",
-                    "Class",
-                    "Allergens",
-                    "Parents",
-                    "Ordering",
-                    "",
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="px-4 py-3 text-left text-xs font-medium"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((student, i) => (
-                  <tr
-                    key={student.id}
-                    className="transition-colors hover:bg-(--bg-secondary)"
-                    style={{
-                      borderBottom:
-                        i < filtered.length - 1 ?
-                          "1px solid var(--border-primary)"
-                        : undefined,
-                    }}
-                  >
-                    <td className="px-4 py-3">
-                      <div
-                        className="font-medium"
-                        style={{ color: "var(--text-primary)" }}
-                      >
-                        {student.name}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className="font-mono text-xs px-2 py-0.5 rounded"
-                        style={{
-                          background: "var(--bg-tertiary)",
-                          color: "var(--text-secondary)",
-                        }}
-                      >
-                        {student.studentCode}
-                      </span>
-                    </td>
-                    <td
-                      className="px-4 py-3"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      {student.class ?
-                        `Grade ${student.class.grade} — ${student.class.section}`
-                      : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {student.allergens?.length > 0 ?
-                          student.allergens.slice(0, 3).map((a: any) => (
-                            <span
-                              key={a.allergen}
-                              className="px-1.5 py-0.5 rounded text-xs font-medium capitalize"
-                              style={{
-                                background: `${ALLERGEN_COLORS[a.allergen] ?? "#6b7280"}20`,
-                                color: ALLERGEN_COLORS[a.allergen] ?? "#6b7280",
-                              }}
-                            >
-                              {a.allergen}
-                            </span>
-                          ))
-                        : <span style={{ color: "var(--text-muted)" }}>—</span>}
-                        {student.allergens?.length > 3 && (
-                          <span
-                            className="text-xs"
+            ) : (
+              <div className="w-full">
+                {/* Desktop table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr style={{ borderBottom: "1px solid var(--border-primary)" }}>
+                        {["Student", "Code", "Class", "Allergens", "Parents", "Ordering", ""].map((h) => (
+                          <th
+                            key={h}
+                            className="px-4 py-3 text-left text-xs font-medium tracking-wider"
                             style={{ color: "var(--text-muted)" }}
                           >
-                            +{student.allergens.length - 3}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td
-                      className="px-4 py-3"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      {student.parentLinks?.filter(
-                        (l: any) => l.status === "approved",
-                      ).length ?? 0}{" "}
-                      linked
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className="px-2 py-0.5 rounded-full text-xs font-medium"
-                        style={
-                          student.orderingEnabled ?
-                            {
-                              background: "rgba(34,197,94,0.12)",
-                              color: "#22c55e",
-                            }
-                          : {
-                              background: "rgba(239,68,68,0.12)",
-                              color: "#ef4444",
-                            }
-                        }
-                      >
-                        {student.orderingEnabled ? "Enabled" : "Disabled"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => handleDelete(student.id)}
-                        className="p-1.5 rounded-lg transition-colors hover:bg-red-50"
-                        title="Delete student"
-                      >
-                        <Trash2 size={14} style={{ color: "#ef4444" }} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          }
-        </div>
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((student) => (
+                        <StudentRow
+                          key={student.id}
+                          student={student}
+                          classes={classes}
+                          toast={toast}
+                          viewMode="table"
+                          onEdit={setEditingStudent}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile cards */}
+                <div className="md:hidden divide-y" style={{ borderColor: "var(--border-primary)" }}>
+                  {filtered.map((student) => (
+                    <StudentRow
+                      key={student.id}
+                      student={student}
+                      classes={classes}
+                      toast={toast}
+                      viewMode="card"
+                      onEdit={setEditingStudent}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "pending" && <PendingLinksPanel links={pendingLinks} toast={toast} />}
+      </div>
+
+      {/* Add modal */}
+      {showAdd && (
+        <StudentModal
+          classes={classes}
+          onClose={() => setShowAdd(false)}
+          onSuccess={(msg) => { toast(msg, "success"); setShowAdd(false); }}
+          onError={(msg) => toast(msg, "error")}
+        />
       )}
 
-      {/* Pending links tab */}
-      {tab === "pending" && (
-        <div
-          className="rounded-xl border overflow-hidden"
-          style={{
-            background: "var(--bg-card)",
-            borderColor: "var(--border-card)",
-            boxShadow: "var(--shadow-card)",
-          }}
-        >
-          {pendingLinks.length === 0 ?
-            <div className="py-16 text-center">
-              <CheckCircle
-                size={32}
-                className="mx-auto mb-3"
-                style={{ color: "#22c55e" }}
-              />
-              <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                No pending link requests.
-              </p>
-            </div>
-          : <div
-              className="divide-y"
-              style={{ borderColor: "var(--border-primary)" }}
-            >
-              {pendingLinks.map((link) => (
-                <div
-                  key={link.id}
-                  className="px-5 py-4 flex items-center justify-between gap-4"
-                >
-                  <div className="flex items-center gap-4">
-                    <div
-                      className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
-                      style={{
-                        background: "var(--bg-tertiary)",
-                        color: "var(--text-secondary)",
-                      }}
-                    >
-                      {link.parent?.name?.[0]?.toUpperCase() ?? "P"}
-                    </div>
-                    <div>
-                      <p
-                        className="text-sm font-medium"
-                        style={{ color: "var(--text-primary)" }}
-                      >
-                        {link.parent?.name}
-                        <span
-                          className="ml-2 font-normal"
-                          style={{ color: "var(--text-muted)" }}
-                        >
-                          wants to link to
-                        </span>{" "}
-                        {link.student?.name}
-                      </p>
-                      <p
-                        className="text-xs"
-                        style={{ color: "var(--text-muted)" }}
-                      >
-                        {link.parent?.email} · Student code:{" "}
-                        <span className="font-mono">
-                          {link.student?.studentCode}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => handleResolveLink(link.id, "approved")}
-                      disabled={isPending}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50 transition-all"
-                      style={{
-                        background: "rgba(34,197,94,0.12)",
-                        color: "#22c55e",
-                        border: "1px solid rgba(34,197,94,0.2)",
-                      }}
-                    >
-                      <CheckCircle size={13} />
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => handleResolveLink(link.id, "rejected")}
-                      disabled={isPending}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50 transition-all"
-                      style={{
-                        background: "rgba(239,68,68,0.12)",
-                        color: "#ef4444",
-                        border: "1px solid rgba(239,68,68,0.2)",
-                      }}
-                    >
-                      <XCircle size={13} />
-                      Reject
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          }
-        </div>
+      {/* Edit modal */}
+      {editingStudent && (
+        <StudentModal
+          student={editingStudent}
+          classes={classes}
+          onClose={() => setEditingStudent(null)}
+          onSuccess={(msg) => { toast(msg, "success"); setEditingStudent(null); }}
+          onError={(msg) => toast(msg, "error")}
+        />
       )}
-    </div>
+
+      <ToastContainer toasts={toasts} dismiss={dismiss} />
+    </>
   );
 }

@@ -14,6 +14,8 @@ import {
   Info,
   Utensils,
 } from "lucide-react";
+import { PortalSelect } from "@/components/PortalSelect";
+import { useToast, ToastContainer } from "@/components/useToast";
 
 type MenuItem = {
   id: string;
@@ -66,6 +68,7 @@ export function MenuClient({
   today,
 }: MenuClientProps) {
   const router = useRouter();
+  const { toasts, toast, dismiss } = useToast();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedStudent, setSelectedStudent] = useState(students[0]?.id ?? "");
   const [placing, setPlacing] = useState(false);
@@ -73,7 +76,8 @@ export function MenuClient({
   const cartTotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const cartCount = cart.reduce((sum, i) => sum + i.quantity, 0);
 
-  // Logic functions
+  // ── Cart helpers ────────────────────────────────────────────────────────────
+
   function addToCart(item: { id: string; name: string; price: string }) {
     setCart((prev) => {
       const existing = prev.find((i) => i.menuItemId === item.id);
@@ -104,17 +108,22 @@ export function MenuClient({
     );
   }
 
+  // ── Order placement ─────────────────────────────────────────────────────────
+
   async function handlePlaceOrder() {
-    if (!selectedStudent || cart.length === 0 || !selectedCanteenId) return;
+    if (!selectedStudent) { toast("Please select a student.", "warning"); return; }
+    if (cart.length === 0) { toast("Your cart is empty.", "warning"); return; }
+    if (!selectedCanteenId) { toast("Please select a canteen.", "warning"); return; }
+
     setPlacing(true);
     try {
-      await createOrder({
+      const result = await createOrder({
         order: {
           studentId: selectedStudent,
           parentId,
           canteenId: selectedCanteenId,
-          totalAmount: cartTotal.toFixed(2),
-          taxAmount: "0.00",
+          totalAmount: cartTotal.toFixed(0),
+          taxAmount: "0",
           orderDate: selectedDate,
           preparationDeadlineAt: new Date(selectedDate + "T07:30:00Z"),
           isRecurring: false,
@@ -122,13 +131,29 @@ export function MenuClient({
         items: cart.map((i) => ({
           menuItemId: i.menuItemId,
           quantity: i.quantity,
-          unitPrice: i.price.toFixed(2),
+          unitPrice: i.price.toFixed(0),
         })),
       });
+
+      if (!result.success) {
+        if (result.code === "INSUFFICIENT_BALANCE") {
+          const match = result.error.match(/Available:\s*([\d.]+)/);
+          const available = match ? `PKR ${Math.round(parseFloat(match[1]))}` : "PKR 0";
+          toast(`Insufficient balance (${available}). Please top up your wallet.`, "error");
+        } else if (result.code === "WALLET_NOT_FOUND") {
+          toast("Wallet not found. Please contact support.", "error");
+        } else {
+          toast(result.error, "error");
+        }
+        return;
+      }
+
+      toast("Order placed successfully!", "success");
       setCart([]);
-      router.push("/parent/orders");
-    } catch (e) {
-      console.error(e);
+      setTimeout(() => router.push("/parent/orders"), 1200);
+    } catch {
+      // Only network-level failures reach here now
+      toast("Network error. Please check your connection.", "error");
     } finally {
       setPlacing(false);
     }
@@ -145,242 +170,255 @@ export function MenuClient({
     return acc;
   }, {});
 
-  return (
-    <div className="flex flex-col lg:flex-row gap-8">
-      {/* Left: Menu */}
-      <div className="flex-1 flex flex-col gap-6 min-w-0">
-        {/* Filters Bar - Using same secondary bg and border as ChildCard */}
-        <div className="flex flex-wrap items-center gap-4 p-4 bg-(--bg-card) border border-(--border-card) rounded-2xl shadow-sm">
-          <div className="flex items-center gap-2 px-4 py-2 bg-(--bg-secondary) rounded-xl border border-(--border-card)">
-            <Calendar size={16} className="text-(--text-muted)" />
-            <input
-              type="date"
-              value={selectedDate}
-              min={today}
-              max={maxDateStr}
-              onChange={(e) =>
-                router.push(
-                  `/parent/menu?date=${e.target.value}&canteen=${selectedCanteenId}`,
-                )
-              }
-              className="bg-transparent text-sm font-bold text-(--text-primary) outline-none cursor-pointer"
-            />
-          </div>
+  // ── PortalSelect option arrays ──────────────────────────────────────────────
 
-          {canteens.length > 1 && (
+  const canteenOptions = canteens.map((c) => ({
+    value: c.id,
+    label: c.name,
+    sublabel: c.location ?? undefined,
+    icon: <Store size={14} />,
+  }));
+
+  const studentOptions = students.map((s) => ({
+    value: s.id,
+    label: s.name,
+    icon: <User size={14} />,
+  }));
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+
+  return (
+    <>
+      <div className="flex flex-col lg:flex-row gap-8">
+        {/* Left: Menu */}
+        <div className="flex-1 flex flex-col gap-6 min-w-0">
+
+          {/* Filters Bar */}
+          <div className="flex flex-wrap items-center gap-4 p-4 bg-(--bg-card) border border-(--border-card) rounded-2xl shadow-sm">
             <div className="flex items-center gap-2 px-4 py-2 bg-(--bg-secondary) rounded-xl border border-(--border-card)">
-              <Store size={16} className="text-(--text-muted)" />
-              <select
-                value={selectedCanteenId}
+              <Calendar size={16} className="text-(--text-muted)" />
+              <input
+                type="date"
+                value={selectedDate}
+                min={today}
+                max={maxDateStr}
                 onChange={(e) =>
                   router.push(
-                    `/parent/menu?date=${selectedDate}&canteen=${e.target.value}`,
+                    `/parent/menu?date=${e.target.value}&canteen=${selectedCanteenId}`,
                   )
                 }
                 className="bg-transparent text-sm font-bold text-(--text-primary) outline-none cursor-pointer"
-              >
-                {canteens.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
+
+            {canteens.length > 1 && (
+              <div className="w-56">
+                <PortalSelect
+                  options={canteenOptions}
+                  value={selectedCanteenId}
+                  onChange={(val) => {
+                    if (val)
+                      router.push(
+                        `/parent/menu?date=${selectedDate}&canteen=${val}`,
+                      );
+                  }}
+                  triggerIcon={<Store size={14} />}
+                  placeholder="Select canteen…"
+                  compact
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Menu Sections */}
+          {menuItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 bg-(--bg-card) border border-(--border-card) rounded-2xl shadow-sm italic text-(--text-muted)">
+              <ChefHat size={48} className="mb-4 opacity-10" />
+              <p>No menu items found for this selection.</p>
+            </div>
+          ) : (
+            Object.entries(grouped).map(([slot, items]) => (
+              <div key={slot} className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-[10px] font-bold text-(--text-muted) uppercase tracking-[0.2em] px-1">
+                    {slot}
+                  </h3>
+                  <div className="h-px flex-1 bg-(--border-card)" />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {items.map((item) => {
+                    const menuItem = (item as any).menuItem ?? item;
+                    if (!menuItem.isAvailable) return null;
+                    const qty =
+                      cart.find((i) => i.menuItemId === menuItem.id)
+                        ?.quantity ?? 0;
+
+                    return (
+                      <div
+                        key={menuItem.id}
+                        className="bg-(--bg-card) border border-(--border-card) rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between"
+                      >
+                        <div>
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="text-lg font-bold text-(--text-primary) transition-colors">
+                              {menuItem.name}
+                            </h4>
+                            <span className="text-sm font-bold text-(--text-primary)">
+                              PKR {Math.round(parseFloat(menuItem.price))}
+                            </span>
+                          </div>
+
+                          <p className="text-sm text-(--text-secondary) font-medium line-clamp-2 mb-4">
+                            {menuItem.description || "Standard nutritious meal."}
+                          </p>
+
+                          <div className="flex flex-wrap gap-2 mb-6">
+                            {menuItem.isSpecialOfDay && (
+                              <span className="text-[11px] px-2 py-0.5 rounded-lg font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                                Special
+                              </span>
+                            )}
+                            {menuItem.isVegetarian && (
+                              <span className="text-[11px] px-2 py-0.5 rounded-lg font-bold bg-green-500/10 text-green-600 border border-green-500/20">
+                                Veg
+                              </span>
+                            )}
+                            {menuItem.calories && (
+                              <span className="text-[11px] px-2 py-0.5 rounded-lg font-bold bg-zinc-100 text-zinc-900 border border-zinc-200 dark:bg-zinc-800 dark:text-zinc-100 dark:border-zinc-700">
+                                {menuItem.calories} kcal
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-3 pt-4 border-t border-(--border-card)">
+                          {qty > 0 ? (
+                            <div className="flex items-center gap-4 bg-(--bg-secondary) rounded-xl p-1.5 border border-(--border-card)">
+                              <button
+                                onClick={() => removeFromCart(menuItem.id)}
+                                className="w-8 h-8 rounded-lg flex items-center justify-center bg-(--bg-card) hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors text-(--text-primary)"
+                              >
+                                <Minus size={14} />
+                              </button>
+                              <span className="text-sm font-bold min-w-[1rem] text-center">
+                                {qty}
+                              </span>
+                              <button
+                                onClick={() => addToCart(menuItem)}
+                                className="w-8 h-8 rounded-lg flex items-center justify-center bg-(--bg-card) hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors text-(--text-primary)"
+                              >
+                                <Plus size={14} />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => addToCart(menuItem)}
+                              className="flex items-center gap-2 px-5 py-2.5 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 rounded-xl text-xs font-bold hover:opacity-90 transition-all active:scale-95"
+                            >
+                              <Plus size={14} /> Add to Cart
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
           )}
         </div>
 
-        {/* Menu Sections */}
-        {menuItems.length === 0 ?
-          <div className="flex flex-col items-center justify-center py-20 bg-(--bg-card) border border-(--border-card) rounded-2xl shadow-sm italic text-(--text-muted)">
-            <ChefHat size={48} className="mb-4 opacity-10" />
-            <p>No menu items found for this selection.</p>
-          </div>
-        : Object.entries(grouped).map(([slot, items]) => (
-            <div key={slot} className="space-y-4">
-              <div className="flex items-center gap-3">
-                <h3 className="text-[10px] font-bold text-(--text-muted) uppercase tracking-[0.2em] px-1">
-                  {slot}
-                </h3>
-                <div className="h-px flex-1 bg-(--border-card)" />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {items.map((item) => {
-                  const menuItem = (item as any).menuItem ?? item;
-                  if (!menuItem.isAvailable) return null;
-                  const qty =
-                    cart.find((i) => i.menuItemId === menuItem.id)?.quantity ??
-                    0;
-
-                  return (
-                    <div
-                      key={menuItem.id}
-                      className="bg-(--bg-card) border border-(--border-card) rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between"
-                    >
-                      <div>
-                        <div className="flex justify-between items-start mb-2">
-                          <h4 className="text-lg font-bold text-(--text-primary) transition-colors">
-                            {menuItem.name}
-                          </h4>
-                          <span className="text-sm font-bold text-(--text-primary)">
-                            ${parseFloat(menuItem.price).toFixed(2)}
-                          </span>
-                        </div>
-
-                        <p className="text-sm text-(--text-secondary) font-medium line-clamp-2 mb-4">
-                          {menuItem.description || "Standard nutritious meal."}
-                        </p>
-
-                        {/* Badges - Matching Allergen Colors logic */}
-                        <div className="flex flex-wrap gap-2 mb-6">
-                          {menuItem.isSpecialOfDay && (
-                            <span className="text-[11px] px-2 py-0.5 rounded-lg font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">
-                              Special
-                            </span>
-                          )}
-                          {menuItem.isVegetarian && (
-                            <span className="text-[11px] px-2 py-0.5 rounded-lg font-bold bg-green-500/10 text-green-600 border border-green-500/20">
-                              Veg
-                            </span>
-                          )}
-                          {menuItem.calories && (
-                            <span className="text-[11px] px-2 py-0.5 rounded-lg font-bold bg-zinc-100 text-zinc-900 border border-zinc-200 dark:bg-zinc-800 dark:text-zinc-100 dark:border-zinc-700">
-                              {menuItem.calories} kcal
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-end gap-3 pt-4 border-t border-(--border-card)">
-                        {qty > 0 ?
-                          <div className="flex items-center gap-4 bg-(--bg-secondary) rounded-xl p-1.5 border border-(--border-card)">
-                            <button
-                              onClick={() => removeFromCart(menuItem.id)}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center bg-(--bg-card) hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors text-(--text-primary)"
-                            >
-                              <Minus size={14} />
-                            </button>
-                            <span className="text-sm font-bold min-w-[1rem] text-center">
-                              {qty}
-                            </span>
-                            <button
-                              onClick={() => addToCart(menuItem)}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center bg-(--bg-card) hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors text-(--text-primary)"
-                            >
-                              <Plus size={14} />
-                            </button>
-                          </div>
-                        : <button
-                            onClick={() => addToCart(menuItem)}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 rounded-xl text-xs font-bold hover:opacity-90 transition-all active:scale-95"
-                          >
-                            <Plus size={14} /> Add to Cart
-                          </button>
-                        }
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))
-        }
-      </div>
-
-      {/* Right: Summary Cart */}
-      <div className="w-full lg:w-80 shrink-0">
-        <div className="sticky top-24 bg-(--bg-card) border border-(--border-card) rounded-2xl p-6 shadow-sm flex flex-col gap-6">
-          <div className="flex items-center justify-between border-b border-(--border-card) pb-4">
-            <h2 className="font-bold text-lg text-(--text-primary) flex items-center gap-2">
-              <ShoppingCart size={18} />
-              Summary
-            </h2>
-            <span className="text-[10px] font-bold text-(--text-muted) uppercase tracking-widest">
-              {cartCount} Items
-            </span>
-          </div>
-
-          {/* Student Selector - Same style as ChildCard's ordering button container */}
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold text-(--text-muted) uppercase tracking-wider flex items-center gap-1.5">
-              <User size={12} /> Ordering for
-            </label>
-            <select
-              value={selectedStudent}
-              onChange={(e) => setSelectedStudent(e.target.value)}
-              className="w-full px-3 py-3 text-sm font-bold rounded-xl border border-(--border-card) bg-(--bg-secondary) text-(--text-primary) outline-none focus:border-zinc-400 transition-all cursor-pointer"
-            >
-              {students.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Cart Items */}
-          <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
-            {cart.length === 0 ?
-              <div className="text-center py-6">
-                <Utensils
-                  size={24}
-                  className="mx-auto mb-2 text-(--text-muted) opacity-20"
-                />
-                <p className="text-xs font-medium text-(--text-muted)">
-                  Cart is empty
-                </p>
-              </div>
-            : cart.map((item) => (
-                <div
-                  key={item.menuItemId}
-                  className="flex justify-between items-start text-sm"
-                >
-                  <div className="flex-1 pr-2">
-                    <p className="font-bold text-(--text-primary) leading-tight">
-                      {item.name}
-                    </p>
-                    <p className="text-[10px] font-bold text-(--text-muted) mt-0.5 uppercase">
-                      {item.quantity} × ${item.price.toFixed(2)}
-                    </p>
-                  </div>
-                  <span className="font-bold text-(--text-primary)">
-                    ${(item.price * item.quantity).toFixed(2)}
-                  </span>
-                </div>
-              ))
-            }
-          </div>
-
-          {/* Checkout Area */}
-          <div className="pt-4 border-t border-(--border-card) space-y-4">
-            <div className="flex justify-between items-center px-1">
+        {/* Right: Summary Cart */}
+        <div className="w-full lg:w-80 shrink-0">
+          <div className="sticky top-24 bg-(--bg-card) border border-(--border-card) rounded-2xl p-6 shadow-sm flex flex-col gap-6">
+            <div className="flex items-center justify-between border-b border-(--border-card) pb-4">
+              <h2 className="font-bold text-lg text-(--text-primary) flex items-center gap-2">
+                <ShoppingCart size={18} />
+                Summary
+              </h2>
               <span className="text-[10px] font-bold text-(--text-muted) uppercase tracking-widest">
-                Total
-              </span>
-              <span className="text-xl font-bold text-(--text-primary)">
-                ${cartTotal.toFixed(2)}
+                {cartCount} Items
               </span>
             </div>
 
-            <button
-              onClick={handlePlaceOrder}
-              disabled={placing || cart.length === 0}
-              className={`w-full py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all active:scale-95 shadow-sm ${
-                placing || cart.length === 0 ?
-                  "bg-(--bg-secondary) text-(--text-muted) cursor-not-allowed"
-                : "bg-green-500/10 text-green-600 hover:bg-green-500/20 border border-green-500/20"
-              }`}
-            >
-              {placing ? "Processing..." : "Place Order"}
-            </button>
+            <PortalSelect
+              options={studentOptions}
+              value={selectedStudent}
+              onChange={(val) => {
+                if (val) setSelectedStudent(val);
+              }}
+              label="Ordering for"
+              triggerIcon={<User size={14} />}
+              placeholder="Select student…"
+            />
 
-            <p className="text-[9px] text-(--text-muted) text-center font-bold uppercase tracking-tighter">
-              <Info size={10} className="inline mr-1" /> Orders must be placed
-              before 7:30 AM
-            </p>
+            {/* Cart Items */}
+            <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
+              {cart.length === 0 ? (
+                <div className="text-center py-6">
+                  <Utensils
+                    size={24}
+                    className="mx-auto mb-2 text-(--text-muted) opacity-20"
+                  />
+                  <p className="text-xs font-medium text-(--text-muted)">
+                    Cart is empty
+                  </p>
+                </div>
+              ) : (
+                cart.map((item) => (
+                  <div
+                    key={item.menuItemId}
+                    className="flex justify-between items-start text-sm"
+                  >
+                    <div className="flex-1 pr-2">
+                      <p className="font-bold text-(--text-primary) leading-tight">
+                        {item.name}
+                      </p>
+                      <p className="text-[10px] font-bold text-(--text-muted) mt-0.5 uppercase">
+                        {item.quantity} × PKR {Math.round(item.price)}
+                      </p>
+                    </div>
+                    <span className="font-bold text-(--text-primary)">
+                      PKR {Math.round(item.price * item.quantity)}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Checkout Area */}
+            <div className="pt-4 border-t border-(--border-card) space-y-4">
+              <div className="flex justify-between items-center px-1">
+                <span className="text-[10px] font-bold text-(--text-muted) uppercase tracking-widest">
+                  Total
+                </span>
+                <span className="text-xl font-bold text-(--text-primary)">
+                  PKR {Math.round(cartTotal)}
+                </span>
+              </div>
+
+              <button
+                onClick={handlePlaceOrder}
+                disabled={placing || cart.length === 0}
+                className={`w-full py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all active:scale-95 shadow-sm ${placing || cart.length === 0
+                  ? "bg-(--bg-secondary) text-(--text-muted) cursor-not-allowed"
+                  : "bg-green-500/10 text-green-600 hover:bg-green-500/20 border border-green-500/20"
+                  }`}
+              >
+                {placing ? "Processing..." : "Place Order"}
+              </button>
+
+              <p className="text-[9px] text-(--text-muted) text-center font-bold uppercase tracking-tighter">
+                <Info size={10} className="inline mr-1" /> Orders must be placed
+                before 7:30 AM
+              </p>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      <ToastContainer toasts={toasts} dismiss={dismiss} />
+    </>
   );
 }

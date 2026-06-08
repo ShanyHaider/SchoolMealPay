@@ -1,19 +1,21 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { getUser } from "@/db/queries/Users";
 import { getStaffCanteen, getTodayOrders } from "@/db/queries/Staff";
 import { OrdersBoard } from "./_components/OrdersBoard";
+import { getUserFromDb } from "@/features/users/queries";
 
 export default async function OrdersPage() {
   const clerkUser = await currentUser();
   if (!clerkUser) redirect("/sign-in");
-  const dbUser = await getUser(clerkUser.id);
+  const dbUser = await getUserFromDb(clerkUser.id);
   if (!dbUser) redirect("/sign-in");
 
   const canteen = await getStaffCanteen(dbUser.id);
   if (!canteen) redirect("/canteen-staff");
 
-  const orders = await getTodayOrders(canteen.id);
+  const today = new Date().toISOString().split("T")[0];
+  const orders = await getTodayOrders(canteen.id, today);
+
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">

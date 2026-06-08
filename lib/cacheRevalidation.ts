@@ -20,7 +20,8 @@ import { revalidateTag as _revalidateTag } from "next/cache";
 
 // Next.js 15 shipped broken types that require a second `profile` argument.
 // The runtime signature is still revalidateTag(tag: string) — this cast fixes it.
-const revalidateTag = _revalidateTag as (tag: string) => void;
+const revalidateTag = (tag: string) => _revalidateTag(tag, "max");
+
 import {
   getGlobalTag,
   getIdTag,
@@ -267,4 +268,36 @@ export async function revalidateInvoices() {
 export async function revalidateWallet(parentId: string) {
   revalidateTag(getGlobalTag("transactions"));
   revalidateTag(getUserTag("transactions", parentId));
+}
+
+export async function revalidateSuperAdminSubscriptionCache() {
+  revalidateTag(getGlobalTag("school-subscription"));
+  revalidateTag(getGlobalTag("school-profile"));
+}
+
+/**
+ * Triggers cache purges across global user profiles and validation directories.
+ */
+export async function revalidateSuperAdminUserCache() {
+  revalidateTag(getGlobalTag("users"));
+}
+
+/**
+ * Signals updates to the streaming, immutable system compliance log ledger.
+ */
+export async function revalidateSuperAdminAuditCache() {
+  revalidateTag(getGlobalTag("audit-logs"));
+}
+
+export async function revalidateStaffCache(userId: string, clerkId: string) {
+  revalidateTag(getGlobalTag("users"));                  // busts getAllStaff()
+  revalidateTag(getIdTag("users", userId));              // busts per-row queries keyed by DB id
+  revalidateTag(getIdTag("users", clerkId));             // busts per-row queries keyed by clerkId
+  revalidateTag(getGlobalTag("canteen-staff-assignments")); // busts assignment list queries
+}
+
+export async function bustUserCache(clerkId: string, dbUserId?: string) {
+  revalidateTag(getGlobalTag("users"));
+  revalidateTag(getIdTag("users", clerkId));
+  if (dbUserId) revalidateTag(getIdTag("users", dbUserId));
 }

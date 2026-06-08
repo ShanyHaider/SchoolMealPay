@@ -1,33 +1,40 @@
-import {
-  getAllMenuItems,
-  getDailyMenusByWeek,
-  getAllCanteens,
-} from "@/db/queries/Admin";
-import { MenuClient } from "./_components/MenuClient";
+import { connection } from "next/server";
+import { getAllCanteens } from "@/db/queries/Admin";
+import { getAllMenuItemsCached, getWeeklyMenu } from "@/db/queries/Menu"; // adjust path to wherever your cached queries live
+import { MenuClient } from "../../canteen-staff/menu/_components/MenuClient";
 
-function getWeekBounds() {
-  const now = new Date();
-  const day = now.getDay(); // 0=Sun
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
+function getWeekBounds(now: Date) {
+  const fmt = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-  const fmt = (d: Date) => d.toISOString().split("T")[0];
-  return { start: fmt(monday), end: fmt(sunday) };
+  const start = fmt(now); // today
+  const end = new Date(now);
+  end.setDate(now.getDate() + 6);
+
+  return { start, end: fmt(end) };
 }
 
 export default async function MenuPage() {
+  // Opt into dynamic rendering — required before calling new Date()
+  // in a Server Component under Next.js 15 PPR.
+  await connection();
+
+  const now = new Date();
+  const { start, end } = getWeekBounds(now);
+
   const canteens = await getAllCanteens();
   const firstCanteenId = canteens[0]?.id ?? "";
-  const { start, end } = getWeekBounds();
 
   const [menuItems, dailyMenus] = await Promise.all([
-    getAllMenuItems(),
-    firstCanteenId ?
-      getDailyMenusByWeek(start, end, firstCanteenId)
-    : Promise.resolve([]),
+    getAllMenuItemsCached(),
+    firstCanteenId
+      ? getWeeklyMenu(firstCanteenId, start, end)
+      : Promise.resolve([]),
   ]);
+
+  console.log("DEBUG weekBounds:", { start, end });
+  console.log("DEBUG firstCanteenId:", firstCanteenId);
+  console.log("DEBUG dailyMenus returned:", JSON.stringify(dailyMenus, null, 2));
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">

@@ -1,27 +1,23 @@
 import { db } from "@/drizzle/db";
 import { usersTable } from "@/drizzle/schema";
 import { eq } from "drizzle-orm";
-import { unstable_cache } from "next/cache";
-import { getGlobalTag, getIdTag, getUserTag } from "@/lib/cache";
+import { cacheLife, cacheTag } from "next/cache";
+import { getGlobalTag, getIdTag } from "@/lib/cache";
 
 // ─── Cached Queries ────────────────────────────────────────────
-// These run on the SERVER only (Server Components / Server Actions)
 
-export function getUser(clerkId: string) {
-  return unstable_cache(
-    () =>
-      db.query.usersTable.findFirst({
-        where: eq(usersTable.clerkId, clerkId),
-      }),
-    [getIdTag("users", clerkId)],
-    { tags: [getGlobalTag("users"), getIdTag("users", clerkId)] },
-  )();
-}
+// export async function getUser(clerkId: string) {
+//   "use cache";
+//   cacheLife("minutes");
+//   cacheTag(getGlobalTag("users"), getIdTag("users", clerkId));
+//   return db.query.usersTable.findFirst({
+//     where: eq(usersTable.clerkId, clerkId),
+//   });
+// }
 
-export function getAllUsers() {
-  return unstable_cache(
-    () => db.query.usersTable.findMany(),
-    [getGlobalTag("users")],
-    { tags: [getGlobalTag("users")] },
-  )();
+export async function getAllUsers() {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(getGlobalTag("users"));
+  return db.query.usersTable.findMany();
 }

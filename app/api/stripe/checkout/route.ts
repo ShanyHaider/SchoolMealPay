@@ -39,18 +39,18 @@ export async function POST(request: NextRequest) {
     // or when roles change between sessions.
     const dashboardBase =
       dbUser.role === "school_admin" ? "school-admin"
-      : dbUser.role === "canteen_staff" ? "canteen-staff"
-      : "parent";
+        : dbUser.role === "canteen_staff" ? "canteen-staff"
+          : "parent";
 
-    const successUrl = `${origin}/${dashboardBase}/settings?tab=billing&status=success`;
-    const cancelUrl = `${origin}/#pricing`;
+    const successUrl = `${origin}/${dashboardBase}`;
+    const cancelUrl = `${origin}/${dashboardBase}`;
 
     // ── Parent Pro ──────────────────────────────────────────────────────────
     if (tier === "ParentPro") {
       const priceId =
         cycle === "monthly" ?
           process.env.STRIPE_PARENT_PRO_MONTHLY_PRICE_ID
-        : process.env.STRIPE_PARENT_PRO_ANNUAL_PRICE_ID;
+          : process.env.STRIPE_PARENT_PRO_ANNUAL_PRICE_ID;
 
       if (!priceId) {
         return NextResponse.json(
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
       const priceId =
         cycle === "monthly" ?
           process.env.STRIPE_SCHOOL_PREMIUM_MONTHLY_PRICE_ID
-        : process.env.STRIPE_SCHOOL_PREMIUM_ANNUAL_PRICE_ID;
+          : process.env.STRIPE_SCHOOL_PREMIUM_ANNUAL_PRICE_ID;
 
       if (!priceId) {
         return NextResponse.json(

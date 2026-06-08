@@ -1,7 +1,18 @@
+// app/(dashboard)/school-admin/classes/page.tsx
+
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+import { getUserFromDb } from "@/features/users/queries";
 import { getAllClasses } from "@/db/queries/Admin";
 import { ClassesClient } from "./_components/ClassesClient";
 
 export default async function ClassesPage() {
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
+
+  const dbUser = await getUserFromDb(userId);
+  if (!dbUser || dbUser.role !== "school_admin") redirect("/");
+
   const classes = await getAllClasses();
 
   return (
