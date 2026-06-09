@@ -12,16 +12,10 @@ import {
   Plus, MapPin, Clock, Users2, UtensilsCrossed,
   Pencil, Trash2, X, ToggleLeft, ToggleRight,
 } from "lucide-react";
+import z from "zod";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-type CanteenFormValues = {
-  name: string;
-  location?: string | null;
-  operatingFrom?: string | null;
-  operatingUntil?: string | null;
-  capacity?: number | null;
-};
+type CanteenFormValues = z.input<typeof createCanteenSchema>;
 
 interface Canteen {
   id: string;

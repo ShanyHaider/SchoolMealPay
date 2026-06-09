@@ -9,12 +9,14 @@ import { ParentTopbar } from "./ParentTopbar";
 import { NotificationsTab } from "@/components/userMenu/tabs/NotificationsTab";
 import { BillingTabServer } from "@/components/userMenu/tabs/BillingTab";
 import { getUserFromDb } from "@/features/users/queries";
+import { connection } from "next/server";
 
 export async function ParentLayoutContent({
     children,
 }: {
     children: React.ReactNode;
 }) {
+    await connection();
     const { userId } = await auth();
     if (!userId) redirect("/sign-in");
 

@@ -12,6 +12,7 @@ import {
     Receipt,
 } from "lucide-react";
 import { FeedbackWidget } from "../_components/FeedbackWidget";
+import { CancelOrderButton } from "../_components/CancelOrderButton";
 
 const STATUS_CONFIG = {
     pending: {
@@ -121,16 +122,16 @@ export default async function OrderDetailPage({
                                     <div className="flex flex-col items-center gap-1.5">
                                         <div
                                             className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${isCompleted
-                                                ? "bg-(--accent) text-(--accent-text)"
-                                                : "bg-(--bg-tertiary) text-(--text-muted)"
+                                                    ? "bg-(--accent) text-(--accent-text)"
+                                                    : "bg-(--bg-tertiary) text-(--text-muted)"
                                                 }`}
                                         >
                                             {idx + 1}
                                         </div>
                                         <span
                                             className={`text-[10px] font-medium whitespace-nowrap ${isCompleted
-                                                ? "text-(--text-primary)"
-                                                : "text-(--text-muted)"
+                                                    ? "text-(--text-primary)"
+                                                    : "text-(--text-muted)"
                                                 }`}
                                         >
                                             {stepConfig.label}
@@ -139,8 +140,8 @@ export default async function OrderDetailPage({
                                     {!isLast && (
                                         <div
                                             className={`h-0.5 flex-1 mb-5 mx-1 rounded-full transition-colors ${currentStep > idx
-                                                ? "bg-(--accent)"
-                                                : "bg-(--border-card)"
+                                                    ? "bg-(--accent)"
+                                                    : "bg-(--border-card)"
                                                 }`}
                                         />
                                     )}
@@ -179,8 +180,8 @@ export default async function OrderDetailPage({
                             <span className="text-(--text-secondary)">QR Code</span>
                             <span
                                 className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full ${order.qrUsed
-                                    ? "bg-(--bg-tertiary) text-(--text-muted)"
-                                    : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                        ? "bg-(--bg-tertiary) text-(--text-muted)"
+                                        : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                                     }`}
                             >
                                 {order.qrUsed ? "Used" : "Valid"}
@@ -242,6 +243,19 @@ export default async function OrderDetailPage({
                 </div>
             </div>
 
+            {/* Cancel — only for pending orders */}
+            {status === "pending" && (
+                <div className="flex justify-end">
+                    <CancelOrderButton
+                        orderId={order.id}
+                        parentId={order.parentId}
+                        studentId={order.studentId}
+                        canteenId={order.canteenId}
+                    />
+                </div>
+            )}
+
+            {/* Feedback — only for delivered orders */}
             {status === "delivered" && (
                 <FeedbackWidget
                     orderId={order.id}

@@ -19,7 +19,7 @@ import {
 import { revalidatePath } from "next/cache";
 import { assertRole } from "@/lib/guards/serverGuards";
 import { CreateInventoryItemInput, createInventoryItemSchema, CreateMenuItemInput, createMenuItemSchema, ScheduleDailyMenuInput, scheduleDailyMenuSchema, updateInventoryQuantitySchema, UpdateMenuItemInput, updateMenuItemSchema } from "@/lib/validations/validators";
-import { MealSlot } from "@/app/(dashboard)/school-admin/menu/_components/types";
+import { MealSlot } from "@/types/menuTypes";
 
 // ─── Canteens ──────────────────────────────────────────────────
 

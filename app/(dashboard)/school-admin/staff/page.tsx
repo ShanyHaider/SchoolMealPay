@@ -48,7 +48,11 @@ export default async function StaffPage() {
         staff={staff}
         canteens={canteens}
         adminId={dbUser.id}
-        pendingInvitations={pendingInvitations}
+        pendingInvitations={pendingInvitations.map((inv) => ({
+          ...inv,
+          name: inv.name ?? "Invited User", // 👈 Fallback string satisfies the type definition
+          status: inv.status as "pending" | "accepted" | "expired", // Ensures enum alignment
+        }))}
       />
     </div>
   );

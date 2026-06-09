@@ -2,7 +2,7 @@
 
 import { Plus, Trash2, Loader2 } from "lucide-react";
 import { CustomSelect, type DropdownOption } from "./CustomSelect";
-import type { DailyMenu, MealSlot } from "./types";
+import type { DailyMenu, MealSlot } from "../../../../../types/canteenMenuTypes";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 

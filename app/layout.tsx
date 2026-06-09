@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
-import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { Toaster } from "sonner";
-import { PushSubscriber } from "@/components/PushSubscriber"; // 👈 add this
+import { PushSubscriber } from "@/components/PushSubscriber";
 
-const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
+// Import Geist directly from the installed package to fix the Turbopack network error
+import { GeistSans } from "geist/font/sans";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "SchoolMealPay",
@@ -23,7 +24,8 @@ export default async function RootLayout({
     <ClerkProvider>
       <html
         lang="en"
-        className={cn("dark", "font-sans", geist.variable)}
+        // Switched from geist.variable to GeistSans.variable
+        className={cn("dark", "font-sans", GeistSans.variable)}
         suppressHydrationWarning
       >
         <head>
@@ -31,14 +33,16 @@ export default async function RootLayout({
         </head>
         <body>
           <ThemeProvider defaultTheme="dark">
-            <main>{children}</main>
-            <Toaster
-              position="top-right"
-              richColors
-              closeButton
-              theme="system"
-            />
-            <PushSubscriber vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!} /> {/* 👈 add this */}
+            <Suspense fallback={null}>
+              <main>{children}</main>
+              <Toaster
+                position="top-right"
+                richColors
+                closeButton
+                theme="system"
+              />
+              <PushSubscriber vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!} />
+            </Suspense>
           </ThemeProvider>
         </body>
       </html>

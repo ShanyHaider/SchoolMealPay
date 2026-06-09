@@ -12,7 +12,7 @@ import {
     updateMenuItemSchema,
 } from "@/lib/validations/validators";
 import { CustomSelect } from "./CustomSelect";
-import { ITEM_CATEGORIES, type ItemCategory, inputStyle, type MenuItem } from "./types";
+import { ITEM_CATEGORIES, type ItemCategory, inputStyle, type MenuItem } from "../../../../../types/canteenMenuTypes";
 import { menuItemFormSchema, type MenuItemFormValues } from "@/lib/validations/canteen";
 
 // ─── Category icons ───────────────────────────────────────────────────────────

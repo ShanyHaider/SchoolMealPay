@@ -1,8 +1,7 @@
 // db/schema/staffInvitations.ts
-import { pgTable, pgEnum, varchar, uuid } from "drizzle-orm/pg-core";
+import { pgTable, pgEnum, varchar, uuid, timestamp } from "drizzle-orm/pg-core";
 import { id, createdAt } from "../schemaHelpers";
 import { usersTable } from "./users";
-import { canteensTable } from "./canteens";
 
 export const invitationStatusEnum = pgEnum("invitation_status", [
     "pending",
@@ -12,16 +11,17 @@ export const invitationStatusEnum = pgEnum("invitation_status", [
 
 export const staffInvitationsTable = pgTable("staff_invitations", {
     id,
-    email: varchar().notNull().unique(),
-    name: varchar().notNull(),
-    phone: varchar(),
-    canteenId: uuid("canteen_id").references(() => canteensTable.id, {
-        onDelete: "set null",
-    }),
+    email: varchar("email", { length: 255 }).notNull().unique(),
+    name: varchar("name", { length: 255 }),           // exists in DB
+    phone: varchar("phone", { length: 50 }),           // exists in DB
+    clerkInvitationId: varchar("clerk_invitation_id", { length: 255 }), // exists in DB
+    role: varchar("role", { length: 50 })
+        .$type<"canteen_staff" | "school_admin">()
+        .default("canteen_staff")
+        .notNull(),
+    canteenId: uuid("canteen_id"),
+    status: varchar("status", { length: 20 }).default("pending").notNull(),
     invitedBy: uuid("invited_by")
-        .notNull()
-        .references(() => usersTable.id),
-    clerkInvitationId: varchar("clerk_invitation_id"),
-    status: invitationStatusEnum().notNull().default("pending"),
-    createdAt,
+        .references(() => usersTable.id, { onDelete: "set null" }), // no .notNull()
+    createdAt
 });

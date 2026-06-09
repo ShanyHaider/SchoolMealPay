@@ -5,6 +5,8 @@ import Link from "next/link";
 import { OrderDetailsPage } from "./_components/OrderDetailsPage";
 import { Plus, ShoppingBag, ChevronRight } from "lucide-react";
 import { getUserFromDb } from "@/features/users/queries";
+import { InferSelectModel } from "drizzle-orm";
+import { ordersTable } from "@/drizzle/schema";
 
 const STATUS_CONFIG = {
   pending: {
@@ -32,20 +34,25 @@ const STATUS_CONFIG = {
 export default async function OrdersPage({
   searchParams,
 }: {
-  searchParams: { status?: string };
+  searchParams: Promise<{ status?: string }>
 }) {
   const clerkUser = await currentUser();
   if (!clerkUser) redirect("/sign-in");
   const dbUser = await getUserFromDb(clerkUser.id);
   if (!dbUser) redirect("/sign-in");
 
+  const { status } = await searchParams; // 
   const allOrders = await getOrdersByParent(dbUser.id);
-  const activeFilter = searchParams.status ?? "all";
+  const activeFilter = status ?? "all";
 
   const filtered =
-    activeFilter === "all" ? allOrders : (
-      allOrders.filter((o) => o.status === activeFilter)
-    );
+    activeFilter === "all"
+      ? allOrders
+      : allOrders.filter((o) => o.status === activeFilter);
+
+  type Order = InferSelectModel<typeof ordersTable> & {
+    orderItems: { quantity: number; menuItem: { name: string } | null }[];
+  };
 
   const tabs = [
     { key: "all", label: "All", count: allOrders.length },

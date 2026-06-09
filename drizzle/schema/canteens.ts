@@ -46,8 +46,7 @@ export const canteenStaffAssignmentsTable = pgTable(
       .notNull()
       .references(() => canteensTable.id, { onDelete: "cascade" }),
     assignedBy: uuid("assigned_by")
-      .notNull()
-      .references(() => usersTable.id),
+      .references(() => usersTable.id, { onDelete: "set null" }),
     assignedAt: createdAt,
   },
   (t) => [index("canteen_staff_assignments_canteen_idx").on(t.canteenId)],

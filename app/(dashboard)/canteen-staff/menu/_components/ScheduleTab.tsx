@@ -17,7 +17,7 @@ import {
     type MenuItem,
     type DailyMenu,
     type Canteen,
-} from "./types";
+} from "../../../../../types/canteenMenuTypes";
 import { CATEGORY_ICONS_JSX } from "./MenuItemModal";
 import { getWeeklyMenuAction } from "@/db/actions/admin/getWeeklyMenuAction";
 

@@ -6,7 +6,7 @@ import { Trash2, Pencil, UtensilsCrossed, Leaf } from "lucide-react";
 import { deleteMenuItem } from "@/db/actions/admin/Canteen";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { MenuItemModal, CATEGORY_ICONS_JSX } from "./MenuItemModal";
-import type { MenuItem } from "./types";
+import type { MenuItem } from "../../../../../types/canteenMenuTypes";
 
 interface CatalogueTabProps {
     menuItems: MenuItem[];

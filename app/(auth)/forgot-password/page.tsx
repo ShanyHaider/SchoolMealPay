@@ -43,8 +43,8 @@ export default function ForgotPasswordPage() {
       if (createError) {
         setErrorMessage(
           createError.longMessage ??
-            createError.message ??
-            "Something went wrong.",
+          createError.message ??
+          "Something went wrong.",
         );
         return;
       }
@@ -67,8 +67,8 @@ export default function ForgotPasswordPage() {
       console.error("[ForgotPassword] caught error:", err);
       setErrorMessage(
         err?.errors?.[0]?.longMessage ??
-          err?.errors?.[0]?.message ??
-          "Something went wrong. Please try again.",
+        err?.errors?.[0]?.message ??
+        "Something went wrong. Please try again.",
       );
     }
   };
@@ -88,8 +88,8 @@ export default function ForgotPasswordPage() {
       if (verifyError) {
         setErrorMessage(
           verifyError.longMessage ??
-            verifyError.message ??
-            "Invalid or expired code.",
+          verifyError.message ??
+          "Invalid or expired code.",
         );
         return;
       }
@@ -98,8 +98,8 @@ export default function ForgotPasswordPage() {
     } catch (err: any) {
       setErrorMessage(
         err?.errors?.[0]?.longMessage ??
-          err?.errors?.[0]?.message ??
-          "Something went wrong. Please try again.",
+        err?.errors?.[0]?.message ??
+        "Something went wrong. Please try again.",
       );
     }
   };
@@ -129,8 +129,8 @@ export default function ForgotPasswordPage() {
       if (submitError) {
         setErrorMessage(
           submitError.longMessage ??
-            submitError.message ??
-            "Failed to reset password.",
+          submitError.message ??
+          "Failed to reset password.",
         );
         return;
       }
@@ -143,8 +143,8 @@ export default function ForgotPasswordPage() {
     } catch (err: any) {
       setErrorMessage(
         err?.errors?.[0]?.longMessage ??
-          err?.errors?.[0]?.message ??
-          "Something went wrong. Please try again.",
+        err?.errors?.[0]?.message ??
+        "Something went wrong. Please try again.",
       );
     }
   };
@@ -159,7 +159,6 @@ export default function ForgotPasswordPage() {
         <form className="auth-form" onSubmit={handleSendCode}>
           <AuthInput
             id="email"
-            label="Email"
             type="email"
             placeholder="you@example.com"
             required
@@ -189,7 +188,6 @@ export default function ForgotPasswordPage() {
         <form className="auth-form" onSubmit={handleVerifyCode}>
           <AuthInput
             id="resetCode"
-            label="Reset code"
             type="text"
             placeholder="Enter 6-digit code"
             required
@@ -221,14 +219,12 @@ export default function ForgotPasswordPage() {
       <form className="auth-form" onSubmit={handleSetPassword}>
         <AuthInput
           id="newPassword"
-          label="New password"
           type="password"
           placeholder="••••••••"
           required
         />
         <AuthInput
           id="confirmPassword"
-          label="Confirm new password"
           type="password"
           placeholder="••••••••"
           required

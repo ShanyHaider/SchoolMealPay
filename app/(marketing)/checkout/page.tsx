@@ -11,6 +11,7 @@ interface Props {
 }
 
 export default async function CheckoutRedirectPage({ searchParams }: Props) {
+  await connection();
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
@@ -26,7 +27,14 @@ export default async function CheckoutRedirectPage({ searchParams }: Props) {
   }
 
   // User exists — hand off to client component that fires the checkout fetch
-  return <CheckoutTrigger tier={tier} cycle={cycle ?? "monthly"} />;
+  return <Suspense
+    fallback={
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 size={24} className="animate-spin" style={{ color: "var(--text-muted)" }} />
+      </div>
+    }>
+    <CheckoutTrigger tier={tier} cycle={cycle ?? "monthly"} />;
+  </Suspense>
 }
 
 // ─── Waiting state (webhook not fired yet) ────────────────────────────────
@@ -74,4 +82,7 @@ function CheckoutWaiting({ tier, cycle }: { tier: string; cycle: string }) {
 }
 
 // ─── Checkout trigger (client component) ─────────────────────────────────
-import CheckoutTrigger from "./_components/CheckoutTrigger";
+import CheckoutTrigger from "./_components/CheckoutTrigger"; import { Suspense } from "react";
+import { Loader2 } from "lucide-react";
+import { connection } from "next/server";
+

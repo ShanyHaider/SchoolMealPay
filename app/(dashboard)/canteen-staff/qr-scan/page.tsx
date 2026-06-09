@@ -1,19 +1,20 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { getUser } from "@/db/queries/Users";
 import { getStaffCanteen, getTodayOrders } from "@/db/queries/Staff";
 import { QrScannerClient } from "./_components/QrScannerClient";
+import { getUserFromDb } from "@/features/users/queries";
+import { TODAY } from "../../../../types/canteenMenuTypes";
 
 export default async function QrScanPage() {
   const clerkUser = await currentUser();
   if (!clerkUser) redirect("/sign-in");
-  const dbUser = await getUser(clerkUser.id);
+  const dbUser = await getUserFromDb(clerkUser.id);
   if (!dbUser) redirect("/sign-in");
 
   const canteen = await getStaffCanteen(dbUser.id);
   if (!canteen) redirect("/canteen-staff");
 
-  const orders = await getTodayOrders(canteen.id);
+  const orders = await getTodayOrders(canteen.id, TODAY);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">

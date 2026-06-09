@@ -12,6 +12,7 @@ import { eq, and, inArray } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
 import { getGlobalTag, getIdTag } from "@/lib/cache";
 import { bustUserCache } from "@/lib/cacheRevalidation";
+import { env } from "@/data/env/server";
 
 // ─── Cache busting helper ──────────────────────────────────────────────────────
 // Busts every cache tag that getUser() and getUserFromDb() write under,
@@ -41,19 +42,24 @@ export async function POST(request: NextRequest) {
         }
 
         let invitation = null;
-        let resolvedRole: "canteen_staff" | "parent" = "parent";
+        let resolvedRole: "school_admin" | "canteen_staff" | "parent" = "parent";
 
         if (event.type === "user.created") {
-          invitation = await db.query.staffInvitationsTable.findFirst({
-            where: and(
-              eq(staffInvitationsTable.email, email),
-              // Accept both — Clerk marks "accepted" before user.created fires
-              inArray(staffInvitationsTable.status, ["pending", "accepted"]),
-            ),
-          });
+          const bootstrapEmail = env.BOOTSTRAP_ADMIN_EMAIL;
 
-          if (invitation) {
-            resolvedRole = "canteen_staff";
+          if (bootstrapEmail && email === bootstrapEmail) {
+            resolvedRole = "school_admin";
+          } else {
+            invitation = await db.query.staffInvitationsTable.findFirst({
+              where: and(
+                eq(staffInvitationsTable.email, email),
+                inArray(staffInvitationsTable.status, ["pending", "accepted"]),
+              ),
+            });
+
+            if (invitation) {
+              resolvedRole = invitation.role as "canteen_staff" | "school_admin";
+            }
           }
         }
 
@@ -86,13 +92,13 @@ export async function POST(request: NextRequest) {
             .onConflictDoNothing();
 
           if (event.type === "user.created" && invitation) {
-            if (invitation.canteenId) {
+            if (invitation.role === "canteen_staff" && invitation.canteenId && invitation.invitedBy) {
               await tx
                 .insert(canteenStaffAssignmentsTable)
                 .values({
                   staffId: dbUser.id,
                   canteenId: invitation.canteenId,
-                  assignedBy: invitation.invitedBy,
+                  assignedBy: invitation.invitedBy, // now narrowed to string
                 })
                 .onConflictDoNothing();
             }

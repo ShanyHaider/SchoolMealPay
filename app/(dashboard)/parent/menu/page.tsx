@@ -6,6 +6,22 @@ import { MenuClient } from "./_components/MenuClient";
 import { FadeIn } from "@/components/Motion";
 import { getUserFromDb } from "@/features/users/queries";
 
+// Build weekday dates (Mon–Fri) for the next `weeks` weeks starting from today
+function getUpcomingWeekdays(from: Date, weeks: number): string[] {
+  const dates: string[] = [];
+  const d = new Date(from);
+  d.setHours(0, 0, 0, 0);
+  const limit = weeks * 7;
+  for (let i = 0; i < limit && dates.length < weeks * 5; i++) {
+    const day = d.getDay();
+    if (day !== 0 && day !== 6) {
+      dates.push(d.toISOString().split("T")[0]);
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return dates;
+}
+
 export default async function MenuPage({
   searchParams,
 }: {
@@ -28,10 +44,10 @@ export default async function MenuPage({
   const activeCanteens = canteens.filter((c) => c.isActive);
   const selectedCanteenId = filters.canteen ?? activeCanteens[0]?.id ?? "";
 
-  const menuSchedule =
-    selectedCanteenId ?
-      await getDailyMenu(selectedCanteenId, selectedDate)
-      : [];
+  // Today's menu for the cart
+  const menuSchedule = selectedCanteenId
+    ? await getDailyMenu(selectedCanteenId, selectedDate)
+    : [];
 
   const flattenedMenuItems = menuSchedule.map((item) => ({
     ...item.menuItem,
@@ -42,6 +58,43 @@ export default async function MenuPage({
   const linkedStudents = children
     .filter((c) => c.status === "approved" && c.student.orderingEnabled)
     .map((c) => c.student);
+
+  // ── menuByDate for the recurring modal ────────────────────────────────────
+  // Fetch 8 weeks of upcoming weekdays so the modal can show/pick meals.
+  // We run these in parallel — getDailyMenu is cheap (indexed canteen+date).
+  let menuByDate: Record<string, { id: string; name: string; price: string }[]> = {};
+
+  if (selectedCanteenId) {
+    const weekdays = getUpcomingWeekdays(new Date(), 8);
+    const results = await Promise.all(
+      weekdays.map((date) =>
+        getDailyMenu(selectedCanteenId, date).then((schedule) => ({
+          date,
+          items: schedule
+            .filter((s) => s.menuItem.isAvailable)
+            .map((s) => ({
+              id: s.menuItem.id,
+              name: s.menuItem.name,
+              price: s.menuItem.price,
+            })),
+        })),
+      ),
+    );
+    for (const { date, items } of results) {
+      if (items.length > 0) menuByDate[date] = items;
+    }
+  }
+
+  // ── nutritionByChild for AI picks in the recurring modal ──────────────────
+  // Optional — if getNutritionAverages isn't built yet, the modal degrades
+  // gracefully (defaults to first item per day, no AI pre-fill).
+  type NutritionEntry = {
+    avg: { calories: number; protein: number; carbs: number; fat: number; fiber: number };
+    targets: { calories: number; protein: number; carbs: number; fat: number; fiber: number };
+  };
+  const nutritionByChild: Record<string, NutritionEntry> = {};
+
+
 
   return (
     <div className="w-full max-w-6xl mx-auto">
@@ -62,7 +115,6 @@ export default async function MenuPage({
       </FadeIn>
 
       <FadeIn delay={0.1}>
-        {/* The MenuClient handles the filters, the grid, and the order sidebar */}
         <MenuClient
           canteens={activeCanteens}
           menuItems={flattenedMenuItems}
@@ -71,6 +123,8 @@ export default async function MenuPage({
           selectedCanteenId={selectedCanteenId}
           selectedDate={selectedDate}
           today={today}
+          menuByDate={menuByDate}
+          nutritionByChild={nutritionByChild}
         />
       </FadeIn>
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createOrder } from "@/db/actions/Orders";
 import {
@@ -13,9 +13,24 @@ import {
   Minus,
   Info,
   Utensils,
+  Sparkles,
+  Repeat,
 } from "lucide-react";
 import { PortalSelect } from "@/components/PortalSelect";
 import { useToast, ToastContainer } from "@/components/useToast";
+import type { NutritionAverages } from "@/types/nutritionTypes";
+import type { NutritionTargets } from "@/db/actions/Nutrition";
+import { RecurringOrderModal } from "../../_components/RecurringOrderModal";
+
+// Must match the key format used in MealSuggestions.tsx
+function suggestionsKey(childName: string) {
+  return `meal_suggestions_${childName.toLowerCase().replace(/\s+/g, "_")}`;
+}
+
+type SuggestionEntry = {
+  suggestions: { name: string; targetNutrients: string[] }[];
+  generatedAt: number;
+};
 
 type MenuItem = {
   id: string;
@@ -56,6 +71,10 @@ interface MenuClientProps {
   selectedCanteenId: string;
   selectedDate: string;
   today: string;
+  // Per-date menu for recurring orders: key = YYYY-MM-DD
+  menuByDate: Record<string, { id: string; name: string; price: string }[]>;
+  // Nutrition data per child name — enables AI picks in recurring modal
+  nutritionByChild?: Record<string, { avg: NutritionAverages; targets: NutritionTargets }>;
 }
 
 export function MenuClient({
@@ -66,12 +85,40 @@ export function MenuClient({
   selectedCanteenId,
   selectedDate,
   today,
+  menuByDate,
+  nutritionByChild = {},
 }: MenuClientProps) {
   const router = useRouter();
   const { toasts, toast, dismiss } = useToast();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedStudent, setSelectedStudent] = useState(students[0]?.id ?? "");
   const [placing, setPlacing] = useState(false);
+  const [showRecurring, setShowRecurring] = useState(false);
+
+  // Suggested meal names for the selected student, loaded from localStorage.
+  // These are now matched against real menu item names (exact, case-insensitive)
+  // instead of fuzzy word matching — AI writes exact names since we pass the menu to it.
+  const [suggestedNames, setSuggestedNames] = useState<Set<string>>(new Set());
+  const [suggestedFor, setSuggestedFor] = useState<string>("");
+
+  useEffect(() => {
+    const student = students.find((s) => s.id === selectedStudent);
+    if (!student) return;
+    try {
+      const raw = localStorage.getItem(suggestionsKey(student.name));
+      if (!raw) { setSuggestedNames(new Set()); setSuggestedFor(""); return; }
+      const { suggestions, generatedAt }: SuggestionEntry = JSON.parse(raw);
+      if (Date.now() - generatedAt > 24 * 60 * 60 * 1000) {
+        setSuggestedNames(new Set()); setSuggestedFor(""); return;
+      }
+      // Build a lowercase set for O(1) exact lookup
+      setSuggestedNames(new Set(suggestions.map((s) => s.name.toLowerCase())));
+      setSuggestedFor(student.name);
+    } catch {
+      setSuggestedNames(new Set());
+      setSuggestedFor("");
+    }
+  }, [selectedStudent, students]);
 
   const cartTotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const cartCount = cart.reduce((sum, i) => sum + i.quantity, 0);
@@ -152,7 +199,6 @@ export function MenuClient({
       setCart([]);
       setTimeout(() => router.push("/parent/orders"), 1200);
     } catch {
-      // Only network-level failures reach here now
       toast("Network error. Please check your connection.", "error");
     } finally {
       setPlacing(false);
@@ -169,8 +215,6 @@ export function MenuClient({
     acc[slot].push(item);
     return acc;
   }, {});
-
-  // ── PortalSelect option arrays ──────────────────────────────────────────────
 
   const canteenOptions = canteens.map((c) => ({
     value: c.id,
@@ -228,7 +272,32 @@ export function MenuClient({
                 />
               </div>
             )}
+
+            {/* Schedule recurring — sits at the end of the filters bar */}
+            <button
+              onClick={() => setShowRecurring(true)}
+              className="ml-auto flex items-center gap-2 px-3 py-2 bg-(--bg-secondary) border border-(--border-card) text-(--text-secondary) hover:text-(--text-primary) hover:border-(--border-primary) rounded-xl text-sm font-medium transition-colors shrink-0"
+            >
+              <Repeat size={14} />
+              <span className="hidden sm:inline">Schedule recurring</span>
+              <span className="sm:hidden">Recurring</span>
+            </button>
           </div>
+
+          {/* AI recommendation banner */}
+          {suggestedNames.size > 0 && (
+            <div className="flex items-center gap-3 px-4 py-3 bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800/50 rounded-2xl">
+              <Sparkles size={15} className="text-violet-500 shrink-0" />
+              <p className="text-sm text-violet-700 dark:text-violet-300">
+                <span className="font-semibold">AI recommendations active</span>
+                {" "}— meals marked{" "}
+                <span className="inline-flex items-center gap-1 font-bold text-violet-600 dark:text-violet-400">
+                  ✦ Recommended
+                </span>
+                {" "}are suggested for {suggestedFor} based on their nutrition analysis.
+              </p>
+            </div>
+          )}
 
           {/* Menu Sections */}
           {menuItems.length === 0 ? (
@@ -251,20 +320,32 @@ export function MenuClient({
                     const menuItem = (item as any).menuItem ?? item;
                     if (!menuItem.isAvailable) return null;
                     const qty =
-                      cart.find((i) => i.menuItemId === menuItem.id)
-                        ?.quantity ?? 0;
+                      cart.find((i) => i.menuItemId === menuItem.id)?.quantity ?? 0;
+                    // Exact match — AI now writes real menu item names
+                    const isRecommended = suggestedNames.has(menuItem.name.toLowerCase());
 
                     return (
                       <div
                         key={menuItem.id}
-                        className="bg-(--bg-card) border border-(--border-card) rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between"
+                        className={`bg-(--bg-card) border rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between ${isRecommended
+                          ? "border-violet-300 dark:border-violet-700 ring-1 ring-violet-200 dark:ring-violet-800"
+                          : "border-(--border-card)"
+                          }`}
                       >
                         <div>
                           <div className="flex justify-between items-start mb-2">
-                            <h4 className="text-lg font-bold text-(--text-primary) transition-colors">
-                              {menuItem.name}
-                            </h4>
-                            <span className="text-sm font-bold text-(--text-primary)">
+                            <div className="flex flex-col gap-1">
+                              <h4 className="text-lg font-bold text-(--text-primary) transition-colors">
+                                {menuItem.name}
+                              </h4>
+                              {isRecommended && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wider">
+                                  <Sparkles size={9} />
+                                  Recommended for {suggestedFor}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-sm font-bold text-(--text-primary) shrink-0 ml-2">
                               PKR {Math.round(parseFloat(menuItem.price))}
                             </span>
                           </div>
@@ -417,6 +498,23 @@ export function MenuClient({
           </div>
         </div>
       </div>
+
+      {/* Recurring orders modal */}
+      {showRecurring && (
+        <RecurringOrderModal
+          students={students}
+          parentId={parentId}
+          canteenId={selectedCanteenId}
+          menuByDate={menuByDate}
+          nutritionByChild={nutritionByChild}
+          onClose={() => setShowRecurring(false)}
+          onSuccess={() => {
+            setShowRecurring(false);
+            toast("Recurring meals scheduled!", "success");
+            setTimeout(() => router.push("/parent/orders"), 1200);
+          }}
+        />
+      )}
 
       <ToastContainer toasts={toasts} dismiss={dismiss} />
     </>

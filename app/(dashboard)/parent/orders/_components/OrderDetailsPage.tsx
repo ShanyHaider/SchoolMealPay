@@ -44,8 +44,8 @@ export function OrderDetailsPage({ tabs }: TabProps) {
             key={tab.key}
             href={`/parent/orders${tab.key === "all" ? "" : `?status=${tab.key}`}`}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isActive ?
-                "bg-(--bg-card) text-(--text-primary) shadow-(--shadow-pill)"
-                : "text-(--text-secondary) hover:text-(--text-primary)"
+              "bg-(--bg-card) text-(--text-primary) shadow-(--shadow-pill)"
+              : "text-(--text-secondary) hover:text-(--text-primary)"
               }`}
           >
             <Icon size={16} strokeWidth={isActive ? 2.5 : 2} />

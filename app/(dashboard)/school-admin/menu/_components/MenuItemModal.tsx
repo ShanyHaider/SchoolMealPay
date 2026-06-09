@@ -14,8 +14,8 @@ import {
     type UpdateMenuItemInput,
 } from "@/lib/validations/validators";
 import { CustomSelect } from "./CustomSelect";
-import { ITEM_CATEGORIES, type ItemCategory, inputStyle } from "./types";
-import type { MenuItem } from "./types";
+import { ITEM_CATEGORIES, type ItemCategory, inputStyle } from "../../../../../types/menuTypes";
+import type { MenuItem } from "../../../../../types/menuTypes";
 import { menuItemFormSchema, type MenuItemFormValues } from "@/lib/validations/canteen";
 
 // ─── Category icons ───────────────────────────────────────────────────────────

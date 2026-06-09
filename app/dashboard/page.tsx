@@ -58,6 +58,7 @@ async function DashboardRouterWorker({
     case "school_admin": return redirect("/school-admin");
     case "canteen_staff": return redirect("/canteen-staff");
     case "parent": return redirect("/parent");
+    case "system_admin": return redirect("/system-admin");
     default:
       console.log("[dashboard] unknown role:", dbUser.role, "— falling through to /");
       return redirect("/");

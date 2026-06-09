@@ -12,26 +12,21 @@ import { cacheLife, cacheTag } from "next/cache";
 import { getGlobalTag } from "@/lib/cache";
 import { assertRole } from "@/lib/guards/serverGuards";
 
-export async function getSuperAdminStats() {
+export async function getSuperAdminStats(userId: string) {
   "use cache";
   cacheLife("seconds");
-  // Anchored cleanly to all core telemetry models
   cacheTag(
     getGlobalTag("users"),
     getGlobalTag("orders"),
     getGlobalTag("transactions"),
-    getGlobalTag("school-profile")
+    getGlobalTag("school-profile"),
   );
 
-  // DATA CHECKPOINT SECURITY GUARD
-  await assertRole(["system_admin"]);
+  await assertRole(["system_admin"], userId);
 
   const todayStr = new Date().toISOString().split("T")[0];
-
-  // Benchmark starting marker to track real physical performance
   const startTime = performance.now();
 
-  // Execute database calls concurrently to bypass structural execution bottlenecks
   const [revResult, ordersResult, schoolsResult] = await Promise.all([
     db
       .select({ total: sum(transactionsTable.amount) })
@@ -49,25 +44,20 @@ export async function getSuperAdminStats() {
   const endTime = performance.now();
   const actualLatencyMs = Math.round(endTime - startTime);
 
-  const revenue = parseFloat(revResult[0]?.total ?? "0");
-  const activeOrdersCount = ordersResult[0]?.count ?? 0;
-  const schoolsCount = schoolsResult[0]?.count ?? 0;
-
   return {
-    revenue,
-    activeOrdersCount,
-    schoolsCount,
-    latencyMs: actualLatencyMs, // No longer a hardcoded lie
+    revenue: parseFloat(revResult[0]?.total ?? "0"),
+    activeOrdersCount: ordersResult[0]?.count ?? 0,
+    schoolsCount: schoolsResult[0]?.count ?? 0,
+    latencyMs: actualLatencyMs,
   };
 }
 
-export async function getSystemAuditLogs() {
+export async function getSystemAuditLogs(userId: string) {
   "use cache";
   cacheLife("minutes");
   cacheTag(getGlobalTag("audit-logs"));
 
-  // DATA CHECKPOINT SECURITY GUARD
-  await assertRole(["system_admin"]);
+  await assertRole(["system_admin"], userId);
 
   return db.query.auditLogsTable.findMany({
     orderBy: [desc(auditLogsTable.createdAt)],
@@ -80,13 +70,12 @@ export async function getSystemAuditLogs() {
   });
 }
 
-export async function getSchoolSubscriptionData() {
+export async function getSchoolSubscriptionData(userId: string) {
   "use cache";
   cacheLife("minutes");
   cacheTag(getGlobalTag("school-subscription"), getGlobalTag("school-profile"));
 
-  // DATA CHECKPOINT SECURITY GUARD
-  await assertRole(["system_admin"]);
+  await assertRole(["system_admin"], userId);
 
   const [sub, profile] = await Promise.all([
     db.query.schoolSubscriptionTable.findFirst(),
@@ -99,13 +88,12 @@ export async function getSchoolSubscriptionData() {
   };
 }
 
-export async function getGlobalUsers() {
+export async function getGlobalUsers(userId: string) {
   "use cache";
   cacheLife("minutes");
   cacheTag(getGlobalTag("users"));
 
-  // DATA CHECKPOINT SECURITY GUARD
-  await assertRole(["system_admin"]);
+  await assertRole(["system_admin"], userId);
 
   return db.query.usersTable.findMany({
     orderBy: [desc(usersTable.createdAt)],

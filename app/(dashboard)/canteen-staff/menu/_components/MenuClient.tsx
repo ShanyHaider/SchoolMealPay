@@ -8,7 +8,7 @@ import { ToastContainer } from "@/components/useToast";
 import { CatalogueTab } from "../../../school-admin/menu/_components/CatalogueTab";
 import { ScheduleTab } from "../../../school-admin/menu/_components/ScheduleTab";
 import { MenuItemModal } from "../../../school-admin/menu/_components/MenuItemModal";
-import type { MenuItem, DailyMenu, Canteen } from "../../../school-admin/menu/_components/types";
+import type { MenuItem, DailyMenu, Canteen } from "../../../../../types/menuTypes";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 

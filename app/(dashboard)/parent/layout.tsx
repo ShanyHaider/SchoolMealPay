@@ -2,10 +2,12 @@ import { Suspense } from "react";
 import { ParentLayoutContent } from "./_components/ParentLayoutContent";
 
 export default function ParentLayout({
+
   children,
 }: {
   children: React.ReactNode;
 }) {
+
   return (
     <Suspense
       fallback={

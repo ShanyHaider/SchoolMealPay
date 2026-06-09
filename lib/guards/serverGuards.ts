@@ -25,9 +25,20 @@ export class GuardError extends Error {
 /**
  * Asserts that the current user is authenticated and matches one of the required roles.
  * Returns the validated database user record.
+ *
+ * @param allowedRoles - Roles that are permitted to proceed.
+ * @param preResolvedUserId - Optional: pass the userId from auth() called *outside*
+ *   a "use cache" boundary. Required when calling from inside cached query functions,
+ *   since auth() cannot be called inside "use cache" contexts.
  */
-export async function assertRole(allowedRoles: ("system_admin" | "school_admin" | "canteen_staff" | "parent")[]) {
-  const { userId } = await auth();
+export async function assertRole(
+  allowedRoles: ("system_admin" | "school_admin" | "canteen_staff" | "parent")[],
+  preResolvedUserId?: string,
+) {
+  // Use the pre-resolved userId if provided (required inside "use cache" functions),
+  // otherwise call auth() directly (fine in non-cached server contexts).
+  const userId = preResolvedUserId ?? (await auth()).userId;
+
   if (!userId) {
     throw new GuardError("UNAUTHORIZED", "Authentication required. Please sign in.");
   }
@@ -41,7 +52,6 @@ export async function assertRole(allowedRoles: ("system_admin" | "school_admin" 
     throw new GuardError("FORBIDDEN", "This user account has been deactivated.");
   }
 
-  // Treat 'system_admin' and 'system_admin' equivalently if needed (our schema stores system_admin)
   const userRole = dbUser.role as "system_admin" | "school_admin" | "canteen_staff" | "parent";
   if (!allowedRoles.includes(userRole)) {
     throw new GuardError(
@@ -62,14 +72,15 @@ export async function assertSchoolStudentLimit() {
   const tierName = schoolSub?.tier ?? "free";
   const status = schoolSub?.status ?? "active";
 
-  // Derive active students count live at query time
   const [studentQueryResult] = await db
     .select({ studentCount: count() })
     .from(studentsTable);
   const currentCount = studentQueryResult?.studentCount ?? 0;
 
-  // Limits based on tiers
-  const maxStudents = tierName === "premium_school" && status === "active" ? Number.MAX_SAFE_INTEGER : (schoolSub?.studentLimit ?? 50);
+  const maxStudents =
+    tierName === "premium_school" && status === "active"
+      ? Number.MAX_SAFE_INTEGER
+      : (schoolSub?.studentLimit ?? 50);
 
   if (currentCount >= maxStudents) {
     throw new GuardError(
@@ -82,7 +93,7 @@ export async function assertSchoolStudentLimit() {
 }
 
 /**
- * Asserts parent pro subscription capability features (AI meal planning, nutrition metrics).
+ * Asserts parent pro subscription capability features.
  */
 export async function assertParentFeature(
   parentId: string,

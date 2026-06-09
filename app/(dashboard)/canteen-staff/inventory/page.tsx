@@ -1,13 +1,13 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { getUser } from "@/db/queries/Users";
 import { getStaffCanteen, getCanteenInventory } from "@/db/queries/Staff";
 import { InventoryClient } from "./_components/InventoryClient";
+import { getUserFromDb } from "@/features/users/queries";
 
 export default async function StaffInventoryPage() {
   const clerkUser = await currentUser();
   if (!clerkUser) redirect("/sign-in");
-  const dbUser = await getUser(clerkUser.id);
+  const dbUser = await getUserFromDb(clerkUser.id);
   if (!dbUser) redirect("/sign-in");
 
   const canteen = await getStaffCanteen(dbUser.id);

@@ -1,36 +1,34 @@
-import { currentUser } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
-import { getUserFromDb } from "@/features/users/queries";
+// app/(dashboard)/system-admin/page.tsx
+
 import {
   getSuperAdminStats,
   getSchoolSubscriptionData,
   getGlobalUsers,
   getSystemAuditLogs,
 } from "@/db/queries/SuperAdmin";
-import { SuperAdminClient } from "./_components/SystemAdminClient";
-
-export const dynamic = "force-dynamic";
+import { getUserFromDb } from "@/features/users/queries";
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+import { SystemAdminClient } from "./_components/SystemAdminClient";
+import type { UserRow } from "./_components/UserLedgerTable";
+import type { AuditLogRow } from "./_components/AuditLogTable";
 
 export default async function SuperAdminConsolePage() {
-  const clerkUser = await currentUser();
-  if (!clerkUser) redirect("/sign-in");
+  // Layout already guards role — this just gives us dbUser.id for scoped queries.
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
 
-  const dbUser = await getUserFromDb(clerkUser.id);
-  if (!dbUser || dbUser.role !== "system_admin") {
-    // Re-route if they bypass the layout guard somehow
-    redirect("/");
-  }
+  const dbUser = await getUserFromDb(userId);
+  if (!dbUser || dbUser.role !== "system_admin") redirect("/");
 
-  // Fetch all compliance management records in parallel
   const [stats, subscriptionData, users, auditLogs] = await Promise.all([
-    getSuperAdminStats(),
-    getSchoolSubscriptionData(),
-    getGlobalUsers(),
-    getSystemAuditLogs(),
+    getSuperAdminStats(userId),
+    getSchoolSubscriptionData(userId),
+    getGlobalUsers(userId),
+    getSystemAuditLogs(userId),
   ]);
 
-  // Map dates and formats cleanly for Client component hydration
-  const mappedUsers = users.map((u) => ({
+  const mappedUsers: UserRow[] = users.map((u) => ({
     id: u.id,
     name: u.name,
     email: u.email,
@@ -39,14 +37,14 @@ export default async function SuperAdminConsolePage() {
     createdAt: u.createdAt,
   }));
 
-  const mappedAuditLogs = auditLogs.map((l) => ({
+  const mappedAuditLogs: AuditLogRow[] = auditLogs.map((l) => ({
     id: l.id,
     action: l.action,
     entityType: l.entityType,
-    entityId: l.entityId,
+    entityId: l.entityId ?? null,
     oldValues: l.oldValues,
     newValues: l.newValues,
-    ipAddress: l.ipAddress,
+    ipAddress: l.ipAddress ?? null,
     createdAt: l.createdAt,
     user: l.user ? { name: l.user.name, email: l.user.email } : null,
   }));
@@ -61,11 +59,11 @@ export default async function SuperAdminConsolePage() {
           Super Admin Console
         </h1>
         <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-          Overview system health, adjust student capacity, and review system changes.
+          System health, user management, school settings, and audit trail.
         </p>
       </div>
 
-      <SuperAdminClient
+      <SystemAdminClient
         stats={stats}
         subscriptionData={subscriptionData}
         users={mappedUsers}

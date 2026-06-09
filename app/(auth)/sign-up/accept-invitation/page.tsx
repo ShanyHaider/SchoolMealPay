@@ -3,7 +3,7 @@
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSignUp, useUser } from "@clerk/nextjs";
-import { AuthCard, AuthButton, AuthInput } from "@/app/(auth)/_components/AuthCard";
+import { AuthCard, AuthButton } from "@/app/(auth)/_components/AuthCard";
 import { Loader2 } from "lucide-react";
 
 function AcceptInvitationForm() {

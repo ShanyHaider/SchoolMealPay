@@ -14,7 +14,7 @@ import {
   Package,
   Search,
 } from "lucide-react";
-import { verifyQrCodeSchema } from "@/lib/validations/actions";
+import { verifyQrCodeSchema } from "@/lib/validations/validators";
 
 type ScanResult =
   | { success: true; order: any }

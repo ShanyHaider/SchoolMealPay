@@ -7,6 +7,8 @@ export const env = createEnv({
     CLERK_SECRET_KEY: z.string().min(1),
     CLERK_WEBHOOK_SIGNING_SECRET: z.string().min(1),
 
+    BOOTSTRAP_ADMIN_EMAIL: z.string().email().optional(), // 👈
+
     // Stripe core
     STRIPE_SECRET_KEY: z.string().min(1),
     STRIPE_WEBHOOK_SECRET: z.string().min(1),
