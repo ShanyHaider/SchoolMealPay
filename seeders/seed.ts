@@ -13,7 +13,6 @@ import * as schema from "@/drizzle/schema";
 const db = drizzle(process.env.DATABASE_URL!, { schema });
 
 async function seed() {
-    console.log("🌱 Seeding database...");
 
     // ── 1. School subscription ───────────────────────────────────────────────
     // Single row — the entire app reads this with findFirst().
@@ -54,9 +53,7 @@ async function seed() {
         .returning();
 
     if (profile) {
-        console.log("  ✓ school_profile row created:", profile.id);
     } else {
-        console.log("  · school_profile row already exists — skipped");
     }
 
     // ── 3. Nutrition targets ─────────────────────────────────────────────────
@@ -109,17 +106,13 @@ async function seed() {
             .returning();
 
         if (row) {
-            console.log(`  ✓ nutrition_target created: ${row.label}`);
         } else {
-            console.log(`  · nutrition_target already exists: ${target.label}`);
         }
     }
 
-    console.log("\n✅ Seed complete.");
     process.exit(0);
 }
 
 seed().catch((err) => {
-    console.error("❌ Seed failed:", err);
     process.exit(1);
 });

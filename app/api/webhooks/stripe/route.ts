@@ -58,7 +58,6 @@ export async function POST(request: NextRequest) {
     });
 
     if (alreadyProcessed) {
-      console.log(`[Stripe Webhook] Duplicate event skipped: ${event.id}`);
       return new Response("Already processed", { status: 200 });
     }
   } catch (err) {
@@ -194,7 +193,6 @@ export async function POST(request: NextRequest) {
       }
 
       default:
-        console.log(`[Stripe Webhook] Unhandled event type: ${event.type}`);
     }
 
     // ── 4. Mark event as processed ────────────────────────────────────────

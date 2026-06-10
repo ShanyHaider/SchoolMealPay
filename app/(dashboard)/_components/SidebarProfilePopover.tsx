@@ -108,8 +108,8 @@ export function SidebarSettingsModal({
                     key={id}
                     onClick={() => setActiveTab(id)}
                     className={`flex items-center gap-2.5 rounded-xl px-3 py-2 md:py-2.5 text-xs font-bold capitalize transition-all shrink-0 cursor-pointer ${activeTab === id
-                        ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
-                        : "text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
+                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                      : "text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
                       }`}
                   >
                     <Icon size={14} />

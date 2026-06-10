@@ -71,7 +71,6 @@ Most ordered meals: ${topMeals.map((m) => `${m.name} (${m.healthStatus})`).join(
 
     try {
         const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
-        console.log("[nutrition] summary verdict:", parsed.verdict);
         return parsed as {
             summary: string;
             concerns: string[];
@@ -151,7 +150,6 @@ Rules:
         const filtered = (parsed.suggestions as MealSuggestion[]).filter(
             (s) => validNames.has(s.name.toLowerCase()),
         );
-        console.log("[nutrition] suggestions:", filtered.map((s) => s.name));
         return filtered.length > 0 ? filtered : null;
     } catch {
         console.error("[nutrition] suggestions parse failed:", text);

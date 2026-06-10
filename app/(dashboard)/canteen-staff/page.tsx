@@ -22,12 +22,11 @@ export default async function CanteenStaffPage() {
   const canteen = await getStaffCanteen(dbUser.id);
   const today = new Date().toISOString().split("T")[0];
 
-
   if (!canteen) {
     return (
       <div className="max-w-6xl mx-auto mt-20 text-center">
         <div
-          className="rounded-2xl border p-10"
+          className="rounded-2xl border p-10 max-w-sm mx-auto"
           style={{
             background: "var(--bg-card)",
             borderColor: "var(--border-card)",
@@ -35,20 +34,20 @@ export default async function CanteenStaffPage() {
           }}
         >
           <div
-            className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+            className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
             style={{ background: "rgba(245,158,11,0.12)" }}
           >
-            <ClipboardList size={24} style={{ color: "#f59e0b" }} />
+            <ClipboardList size={22} style={{ color: "#f59e0b" }} />
           </div>
           <h2
-            className="text-lg font-semibold mb-2"
+            className="text-base font-semibold mb-2"
             style={{ color: "var(--text-primary)" }}
           >
             No Canteen Assigned
           </h2>
-          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+          <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             You haven&apos;t been assigned to a canteen yet. Contact your school
-            administrator to get assigned.
+            administrator to get set up.
           </p>
         </div>
       </div>
@@ -64,9 +63,9 @@ export default async function CanteenStaffPage() {
   const firstName = dbUser.name.split(" ")[0];
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
+    <div className="max-w-6xl mx-auto space-y-7">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div>
           <h1
             className="text-2xl font-bold tracking-tight"
@@ -74,10 +73,7 @@ export default async function CanteenStaffPage() {
           >
             Good {getGreeting()}, {firstName} 👋
           </h1>
-          <p
-            className="text-sm mt-1"
-            style={{ color: "var(--text-secondary)" }}
-          >
+          <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
             {canteen.name} ·{" "}
             {new Date().toLocaleDateString("en-US", {
               weekday: "long",
@@ -87,26 +83,25 @@ export default async function CanteenStaffPage() {
           </p>
         </div>
 
-        {/* Primary action: QR Scanner */}
         <Link
-          href="/canteen/qr-scan"
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:scale-[1.02]"
+          href="/canteen-staff/qr-scan"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:scale-[1.02] hover:brightness-110 flex-shrink-0"
           style={{
-            background: "var(--accent)",
-            color: "var(--accent-text)",
-            boxShadow: "var(--shadow-btn)",
+            background: "#f59e0b",
+            color: "#1a0f00",
+            boxShadow: "0 2px 12px rgba(245,158,11,0.3)",
           }}
         >
-          <QrCode size={16} />
+          <QrCode size={15} />
           Scan QR
         </Link>
       </div>
 
-      {/* Stats */}
+      {/* Stat cards */}
       <StaffStatCards stats={stats} />
 
       {/* Main grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-5">
         <LiveOrdersPreview orders={orders.slice(0, 6)} />
         <TodayMenuPreview menuItems={todayMenu} />
       </div>

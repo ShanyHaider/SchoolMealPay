@@ -21,20 +21,16 @@ async function DashboardRouterWorker({
   const { userId } = await auth();
   if (!userId) return redirect("/sign-in");
 
-  console.log("[dashboard] clerkId:", userId);
 
   const dbUser = await getUserFromDb(userId);
 
-  console.log("[dashboard] dbUser:", JSON.stringify(dbUser, null, 2));
 
   if (!dbUser) {
     const params = await searchParams;
     const attempt = parseInt(params.setup_attempt ?? "0", 10);
 
-    console.log("[dashboard] no dbUser found for clerkId:", userId, "attempt:", attempt);
 
     if (attempt >= 5) {
-      console.log("[dashboard] giving up after 5 attempts, redirecting to /account-error");
       return redirect("/account-error");
     }
 
@@ -52,7 +48,6 @@ async function DashboardRouterWorker({
     );
   }
 
-  console.log("[dashboard] found user, role:", dbUser.role, "→ redirecting");
 
   switch (dbUser.role) {
     case "school_admin": return redirect("/school-admin");
@@ -60,7 +55,6 @@ async function DashboardRouterWorker({
     case "parent": return redirect("/parent");
     case "system_admin": return redirect("/system-admin");
     default:
-      console.log("[dashboard] unknown role:", dbUser.role, "— falling through to /");
       return redirect("/");
   }
 }

@@ -32,9 +32,6 @@ export default async function StaffMenuPage() {
       : Promise.resolve([]),
   ]);
 
-  console.log("DEBUG weekBounds:", { start, end });
-  console.log("DEBUG firstCanteenId:", firstCanteenId);
-  console.log("DEBUG dailyMenus returned:", JSON.stringify(dailyMenus, null, 2));
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">

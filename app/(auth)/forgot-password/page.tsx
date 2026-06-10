@@ -35,11 +35,7 @@ export default function ForgotPasswordPage() {
       const { error: createError } = await signIn.create({
         identifier: emailAddress,
       });
-      console.log("[ForgotPassword] after create:", {
-        error: createError,
-        status: signIn.status,
-        supportedFirstFactors: signIn.supportedFirstFactors,
-      });
+
       if (createError) {
         setErrorMessage(
           createError.longMessage ??
@@ -51,10 +47,7 @@ export default function ForgotPasswordPage() {
 
       const { error: sendError } =
         await signIn.resetPasswordEmailCode.sendCode();
-      console.log("[ForgotPassword] after sendCode:", {
-        error: sendError,
-        status: signIn.status,
-      });
+
       if (sendError) {
         setErrorMessage(
           sendError.longMessage ?? sendError.message ?? "Failed to send code.",

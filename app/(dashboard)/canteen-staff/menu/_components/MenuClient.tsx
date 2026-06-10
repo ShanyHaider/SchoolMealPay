@@ -31,7 +31,6 @@ export function MenuClient({
   weekEnd,
   defaultCanteenId,
 }: MenuClientProps) {
-  console.log("DEBUG MenuClient weekStart:", weekStart, "weekEnd:", weekEnd);
   const { toasts, toast, dismiss } = useToast();
 
   const [tab, setTab] = useState<"catalogue" | "schedule">("catalogue");

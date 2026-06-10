@@ -66,7 +66,6 @@ function AcceptInvitationForm() {
                 navigate: ({ session, decorateUrl }) => {
                     // Handle any pending session tasks (MFA, etc.)
                     if (session?.currentTask) {
-                        console.log("[accept-invitation] session task:", session.currentTask);
                         return;
                     }
                     const url = decorateUrl("/dashboard");

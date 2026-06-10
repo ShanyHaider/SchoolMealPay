@@ -7,6 +7,5 @@ const client = new Client({
 (async () => {
     await client.connect();
     const res = await client.query("select version()");
-    console.log(res.rows);
     await client.end();
 })();

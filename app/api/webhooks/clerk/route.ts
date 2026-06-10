@@ -26,12 +26,7 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case "user.created":
       case "user.updated": {
-        console.log("[webhook debug]", JSON.stringify({
-          email: clerkData.email_addresses?.find(
-            (e: any) => e.id === clerkData.primary_email_address_id
-          )?.email_address,
-          public_metadata: clerkData.public_metadata,
-        }, null, 2));
+
 
         const email = clerkData.email_addresses?.find(
           (e: any) => e.id === clerkData.primary_email_address_id,

@@ -2,10 +2,9 @@
 
 // app/(dashboard)/system-admin/_components/SystemAdminSidebar.tsx
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useClerk } from "@clerk/nextjs";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     LayoutDashboard,
@@ -17,13 +16,8 @@ import {
     Building2,
     FileSpreadsheet,
     Activity,
-    Settings2,
-    LogOut,
-    ChevronUp,
-    X,
     AlertTriangle,
 } from "lucide-react";
-import { createPortal } from "react-dom";
 
 import {
     Tooltip,
@@ -39,8 +33,11 @@ import {
     SheetDescription,
 } from "@/components/ui/sheet";
 
+// Shared Popover Imports
+
 import { cn } from "@/lib/utils";
 import type { usersTable } from "@/drizzle/schema";
+import { SidebarProfilePopover } from "../../_components/SidebarProfilePopover";
 
 type User = typeof usersTable.$inferSelect;
 
@@ -80,153 +77,6 @@ const NAV_ITEMS: NavItem[] = [
         icon: Activity,
     },
 ];
-
-// ─── Profile Popover ──────────────────────────────────────────────────────────
-
-function ProfilePopover({
-    user,
-    isCollapsed,
-}: {
-    user: User;
-    isCollapsed: boolean;
-}) {
-    const [open, setOpen] = useState(false);
-    const [mounted, setMounted] = useState(false);
-    const [pos, setPos] = useState({ top: 0, left: 0, width: 0 });
-    const triggerRef = useRef<HTMLButtonElement>(null);
-    const { signOut } = useClerk();
-
-    useEffect(() => {
-        setMounted(true);
-        return () => setMounted(false);
-    }, []);
-
-    const openPopover = () => {
-        if (!triggerRef.current) return;
-        const rect = triggerRef.current.getBoundingClientRect();
-        setPos({
-            top: rect.top,
-            left: rect.left + rect.width + 8,
-            width: 240,
-        });
-        setOpen(true);
-    };
-
-    const initials = user.name
-        ?.split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2) ?? "SA";
-
-    return (
-        <>
-            <button
-                ref={triggerRef}
-                onClick={open ? () => setOpen(false) : openPopover}
-                className={cn(
-                    "mt-3 w-full flex items-center rounded-xl p-2.5 border border-[var(--border-card)] bg-[var(--bg-card)] hover:bg-[var(--bg-tertiary)] transition-all cursor-pointer group",
-                    isCollapsed ? "justify-center" : "gap-3",
-                )}
-            >
-                {/* Avatar */}
-                <div className="w-8 h-8 rounded-lg bg-red-500/15 text-red-600 flex items-center justify-center font-bold text-xs shrink-0">
-                    {initials}
-                </div>
-
-                {!isCollapsed && (
-                    <>
-                        <div className="flex-1 min-w-0 text-left">
-                            <p className="text-[13px] font-semibold text-[var(--text-primary)] truncate leading-tight">
-                                {user.name}
-                            </p>
-                            <p className="text-[10px] text-red-500 font-bold uppercase tracking-wider leading-tight mt-0.5">
-                                Root Access
-                            </p>
-                        </div>
-                        <ChevronUp
-                            size={14}
-                            className={cn(
-                                "text-[var(--text-muted)] transition-transform duration-200 shrink-0",
-                                open && "rotate-180",
-                            )}
-                        />
-                    </>
-                )}
-            </button>
-
-            {mounted &&
-                open &&
-                createPortal(
-                    <>
-                        {/* Backdrop */}
-                        <div
-                            className="fixed inset-0 z-[9998]"
-                            onClick={() => setOpen(false)}
-                        />
-                        {/* Popover */}
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.97, y: 6 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.97, y: 6 }}
-                            style={{
-                                position: "fixed",
-                                top: pos.top,
-                                left: pos.left,
-                                width: pos.width,
-                                zIndex: 9999,
-                                transform: "translateY(-100%)",
-                            }}
-                            className="rounded-2xl border border-[var(--border-card)] bg-[var(--bg-card)] shadow-2xl overflow-hidden"
-                        >
-                            {/* Header */}
-                            <div className="px-4 py-3 border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]">
-                                <div className="flex items-center gap-2.5">
-                                    <div className="w-9 h-9 rounded-xl bg-red-500/15 text-red-600 flex items-center justify-center font-bold text-sm">
-                                        {initials}
-                                    </div>
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-semibold text-[var(--text-primary)] truncate">
-                                            {user.name}
-                                        </p>
-                                        <p className="text-[10px] text-[var(--text-muted)] truncate">
-                                            {user.email}
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="mt-2 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-red-500/10 border border-red-500/20 w-fit">
-                                    <ShieldCheck size={11} className="text-red-500" />
-                                    <span className="text-[10px] font-bold text-red-500 uppercase tracking-wider">
-                                        System Administrator
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="p-2 space-y-0.5">
-                                <Link
-                                    href="/school-admin"
-                                    onClick={() => setOpen(false)}
-                                    className="flex items-center gap-2.5 w-full rounded-xl px-3 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
-                                >
-                                    <LayoutDashboard size={14} />
-                                    <span>School Admin Panel</span>
-                                </Link>
-                                <button
-                                    onClick={() => signOut({ redirectUrl: "/sign-in" })}
-                                    className="flex items-center gap-2.5 w-full rounded-xl px-3 py-2.5 text-sm text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
-                                >
-                                    <LogOut size={14} />
-                                    <span>Sign Out</span>
-                                </button>
-                            </div>
-                        </motion.div>
-                    </>,
-                    document.body,
-                )}
-        </>
-    );
-}
 
 // ─── Inner sidebar ────────────────────────────────────────────────────────────
 
@@ -268,7 +118,7 @@ function SystemAdminSidebarInner({
                                 <span className="font-semibold text-[var(--text-primary)]">
                                     Super Console
                                 </span>
-                                <span className="text-[10px] uppercase tracking-[0.2em] text-red-500 font-bold mt-1">
+                                <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)] font-bold mt-1">
                                     Root Access
                                 </span>
                             </div>
@@ -295,9 +145,9 @@ function SystemAdminSidebarInner({
 
             {/* Warning banner */}
             {!isCollapsed && (
-                <div className="mx-1 mb-4 flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/8 px-3 py-2.5">
-                    <AlertTriangle size={13} className="text-red-500 shrink-0" />
-                    <p className="text-[10px] font-semibold text-red-500 leading-snug">
+                <div className="mx-1 mb-4 flex items-center gap-2 rounded-xl border border-[var(--border-card)] bg-[var(--bg-secondary)] px-3 py-2.5">
+                    <AlertTriangle size={13} className="text-[var(--text-secondary)] shrink-0" />
+                    <p className="text-[10px] font-semibold text-[var(--text-secondary)] leading-snug">
                         System-wide operations active. Changes are irreversible.
                     </p>
                 </div>
@@ -338,7 +188,7 @@ function SystemAdminSidebarInner({
                                             size={21}
                                             className={cn(
                                                 "relative z-10 shrink-0 transition-transform duration-200 group-hover:scale-105",
-                                                isActive ? "text-red-500" : "opacity-85",
+                                                isActive ? "text-[var(--text-primary)]" : "opacity-85",
                                             )}
                                         />
                                         {!isCollapsed && (
@@ -365,21 +215,19 @@ function SystemAdminSidebarInner({
                 })}
             </nav>
 
-            {/* Exit console link */}
-            {!isCollapsed && (
-                <div className="px-1 mt-2 mb-1">
-                    <Link
-                        href="/school-admin"
-                        className="flex items-center gap-2.5 w-full rounded-xl px-3 py-2.5 text-[13px] font-medium text-[var(--text-muted)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)] transition-colors border border-transparent hover:border-[var(--border-card)]"
-                    >
-                        <LayoutDashboard size={16} className="shrink-0" />
-                        <span>Back to School Admin</span>
-                    </Link>
-                </div>
-            )}
-
             {/* Footer profile */}
-            <ProfilePopover user={user} isCollapsed={isCollapsed} />
+            <div className="mt-auto pt-2 border-t border-[var(--border-primary)]">
+                <SidebarProfilePopover
+                    user={user}
+                    role="System Administrator"
+                    isCollapsed={isCollapsed}
+                    notificationsTab={
+                        <div className="text-sm text-[var(--text-secondary)]">
+                            System alert preferences and logs dispatch options can be configured here.
+                        </div>
+                    }
+                />
+            </div>
         </div>
     );
 }

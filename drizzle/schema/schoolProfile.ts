@@ -11,6 +11,8 @@ export const schoolProfileTable = pgTable("school_profile", {
     phone: varchar(),
     email: varchar(),
     logoUrl: varchar("logo_url"),
+    bannerUrl: varchar("banner_url"),        // ← add
+    website: varchar(),
     primaryColor: varchar("primary_color").default("#000000"),
     timezone: varchar().notNull().default("Asia/Karachi"),
     academicYear: varchar("academic_year"),

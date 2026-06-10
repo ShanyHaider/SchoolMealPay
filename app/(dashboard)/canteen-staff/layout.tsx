@@ -17,7 +17,6 @@ async function CanteenStaffGuard({ children }: { children: React.ReactNode }) {
   const dbUser = await getUserFromDb(clerkUser.id);
 
   if (!dbUser || dbUser.role !== "canteen_staff") {
-    console.log("❌ CANTEEN ROUTE REJECTED. Live DB User Role is:", dbUser?.role);
     redirect("/");
   }
 

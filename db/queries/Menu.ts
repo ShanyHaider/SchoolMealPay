@@ -70,9 +70,6 @@ export async function getWeeklyMenu(
   cacheLife("minutes");
   cacheTag(getGlobalTag("daily-menus"), getCanteenTag("daily-menus", canteenId));
 
-  console.log("DEBUG getWeeklyMenu called with:", { canteenId, startDate, endDate });
-
-
   const result = await db.query.dailyMenusTable.findMany({
     where: and(
       eq(dailyMenusTable.canteenId, canteenId),
@@ -95,7 +92,6 @@ export async function getWeeklyMenu(
     },
     orderBy: [dailyMenusTable.menuDate, dailyMenusTable.mealSlot],
   });
-  console.log("DEBUG getWeeklyMenu result count:", result.length);
 
   return result;
 }
