@@ -21,6 +21,7 @@ import { NutritionChat } from "./_components/NutritionChat";
 import { AiNutritionInsight } from "./_components/AiNutritionInsight";
 import type { NutritionAverages } from "@/types/nutritionTypes";
 import { getMenuItemsByCanteen } from "@/db/queries/Canteen";
+import { connection } from "next/server";
 
 function computeNutritionAverages(orders: any[]): NutritionAverages | null {
   const recentOrders = orders
@@ -101,6 +102,7 @@ const FALLBACK_TARGETS = {
 
 export default async function NutritionPage() {
   try {
+    await connection();
     const clerkUser = await currentUser();
     if (!clerkUser) redirect("/sign-in");
     const dbUser = await getUserFromDb(clerkUser.id);
