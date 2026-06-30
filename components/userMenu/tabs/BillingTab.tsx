@@ -1,35 +1,55 @@
-
 import { auth } from "@clerk/nextjs/server";
 import { getUserFromDb } from "@/features/users/queries";
 import {
   getSchoolSubscription,
-  getSubscriptionInvoices,
   getParentProSubscription,
 } from "@/db/queries/Subscription";
-import { BillingTab } from "@/features/billing/BillingPageClient";
+import { getSchoolStats } from "@/db/queries/SchoolProfile";
+import { BillingTabClient } from "@/features/billing/BillingPageClient";
+import { subscriptionTiers } from "@/data/subscriptionTiers";
+
+const BILLING_HREF: Record<string, string> = {
+  school_admin: "/school-admin/billing",
+  parent: "/parent/billing",
+  canteen_staff: "/parent/billing",
+};
 
 export async function BillingTabServer() {
   const { userId: clerkId } = await auth();
   if (!clerkId) return null;
 
   const dbUser = await getUserFromDb(clerkId);
-  if (!dbUser) return <BillingTab subscription={null} invoices={[]} role="parent" />;
+  if (!dbUser) return null;
+
+  const billingHref = BILLING_HREF[dbUser.role] ?? "/parent/billing";
+  const role = dbUser.role as "school_admin" | "parent" | "canteen_staff";
 
   if (dbUser.role === "school_admin") {
-    const [subscription, invoices] = await Promise.all([
+    const [subscription, stats] = await Promise.all([
       getSchoolSubscription(),
-      getSubscriptionInvoices(),
+      getSchoolStats(),
     ]);
-    return <BillingTab subscription={subscription} invoices={invoices} role="school_admin" />;
+    const studentLimit = subscription?.tier === "premium_school"
+      ? Number.MAX_SAFE_INTEGER
+      : subscriptionTiers.SchoolFree.maxStudents;
+
+    return (
+      <BillingTabClient
+        subscription={subscription}
+        role={role}
+        billingHref={billingHref}
+        studentCount={stats.studentCount}
+        studentLimit={studentLimit}
+      />
+    );
   }
 
-  // parent / canteen_staff
   const subscription = await getParentProSubscription(dbUser.id);
   return (
-    <BillingTab
+    <BillingTabClient
       subscription={subscription ?? null}
-      invoices={[]}
-      role="parent"             // 👈
+      role={role}
+      billingHref={billingHref}
     />
   );
 }

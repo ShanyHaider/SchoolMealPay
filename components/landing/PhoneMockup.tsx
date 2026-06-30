@@ -85,7 +85,7 @@ export function PhoneMockup() {
               </div>
 
               <div className="text-lg font-bold tracking-tight text-white">
-                $24.50
+                Rs. 2,450
               </div>
             </div>
           </div>

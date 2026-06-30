@@ -1,49 +1,30 @@
 "use client";
 
-import React from "react";
 import Link from "next/link";
-
 import { Check, X } from "lucide-react";
+import { subscriptionTiers, formatPrice } from "@/data/subscriptionTiers";
 
 const PLANS = [
   {
-    name: "Free",
-    price: "$0",
-    desc: "For small schools",
-    features: [
-      { text: "Up to 50 students", included: true },
-      { text: "Menu management", included: true },
-      { text: "QR code pickup", included: true },
-      { text: "AI nutrition tracking", included: false },
-    ],
+    key: "SchoolFree" as const,
+    ...subscriptionTiers.SchoolFree,
+    price: formatPrice(subscriptionTiers.SchoolFree.monthlyPriceInCents),
     cta: "Get started",
     href: "/sign-up",
     popular: false,
   },
   {
-    name: "Premium",
-    price: "$49",
-    desc: "For growing schools",
-    features: [
-      { text: "Unlimited students", included: true },
-      { text: "All Free features", included: true },
-      { text: "AI nutrition tracking", included: true },
-      { text: "Advanced analytics", included: true },
-    ],
+    key: "SchoolPremium" as const,
+    ...subscriptionTiers.SchoolPremium,
+    price: formatPrice(subscriptionTiers.SchoolPremium.monthlyPriceInCents),
     cta: "Start free trial",
     href: "/sign-up",
     popular: true,
   },
   {
-    name: "Parent Pro",
-    price: "$4.99",
-    desc: "For health-conscious parents",
-    features: [
-      { text: "Nutrition dashboard", included: true },
-      { text: "AI meal planning", included: true },
-      { text: "Health trends", included: true },
-      { text: "7-day free trial", included: true },
-    ],
+    key: "ParentPro" as const,
+    ...subscriptionTiers.ParentPro,
+    price: formatPrice(subscriptionTiers.ParentPro.monthlyPriceInCents),
     cta: "Start trial",
     href: "/sign-up",
     popular: false,
@@ -55,7 +36,7 @@ export function PricingSection() {
     <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
       {PLANS.map((plan) => (
         <div
-          key={plan.name}
+          key={plan.key}
           className={`relative flex flex-col rounded-3xl border p-8 shadow-sm ${
             plan.popular ?
               "border-blue-500/40 bg-(--bg-secondary)"
@@ -77,10 +58,11 @@ export function PricingSection() {
               <span className="text-5xl font-black tracking-tight">
                 {plan.price}
               </span>
-
-              <span className="pb-1 text-sm text-(--text-secondary)">
-                /month
-              </span>
+              {plan.monthlyPriceInCents > 0 && (
+                <span className="pb-1 text-sm text-(--text-secondary)">
+                  /month
+                </span>
+              )}
             </div>
 
             <div className="mt-8 space-y-4">
@@ -89,7 +71,6 @@ export function PricingSection() {
                   {feature.included ?
                     <Check size={16} className="text-emerald-500" />
                   : <X size={16} className="text-(--text-secondary)" />}
-
                   <span
                     className={`text-sm ${
                       feature.included ?

@@ -1,8 +1,5 @@
 "use server";
 
-// db/actions/Orders.ts
-// Push + in-app notifications wired into: createOrder, updateOrderStatus, collectOrder, cancelOrder, createTransaction
-
 import { db } from "@/drizzle/db";
 import {
   ordersTable,
@@ -10,8 +7,9 @@ import {
   transactionsTable,
   parentWalletsTable,
   studentsTable,
+  childProfilesTable,
 } from "@/drizzle/schema";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   revalidateOrderCache,
   revalidateTransactionCache,
@@ -19,8 +17,14 @@ import {
 } from "@/lib/cacheRevalidation";
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
-import { sendPushNotification, PushEvents } from "@/lib/webpush";
-import { createNotification } from "@/db/actions/Notifications";
+import { PushEvents } from "@/lib/notification/webpush";
+import { notify } from "@/lib/notification/notify";
+import { invalidateStudentMealSuggestions } from "@/db/actions/ai/nutrition";
+import {
+  notifyStaffNewOrder,
+  notifyStaffOrderCancelled,
+} from "@/db/actions/Notifications";
+import { after } from "next/server";
 
 // ── Result type ────────────────────────────────────────────────────────────────
 
@@ -29,8 +33,17 @@ type OrderResult =
   | {
     success: false;
     error: string;
-    code: "INSUFFICIENT_BALANCE" | "WALLET_NOT_FOUND" | "UNKNOWN";
+    code:
+    | "INSUFFICIENT_BALANCE"
+    | "WALLET_NOT_FOUND"
+    | "DAILY_LIMIT_EXCEEDED"
+    | "WEEKLY_LIMIT_EXCEEDED"
+    | "UNKNOWN";
   };
+
+// ── Active order statuses (count toward spending limits) ───────────────────────
+
+const ACTIVE_STATUSES = ["pending", "ready", "delivered"] as const;
 
 // ── Helper: fetch student name for notification copy ──────────────────────────
 
@@ -42,34 +55,21 @@ async function getStudentName(studentId: string): Promise<string> {
   return student?.name ?? "Your child";
 }
 
-// ── Helper: send push + write in-app notification together ────────────────────
-
-async function notifyParent(
-  userId: string,
-  type: string,
-  event: { title: string; body: string },
-) {
-  await Promise.all([
-    sendPushNotification(userId, event).catch(console.error),
-    createNotification({
-      userId,
-      type,
-      title: event.title,
-      message: event.body,
-      channel: "in_app",
-    }),
-  ]);
-}
-
 // ── createOrder ────────────────────────────────────────────────────────────────
 
 export async function createOrder(params: {
   order: Omit<typeof ordersTable.$inferInsert, "qrCode" | "status">;
   items: Omit<typeof orderItemsTable.$inferInsert, "orderId">[];
   paymentMethod?: "wallet" | "stripe";
+  forceLimitOverride?: boolean;
 }): Promise<OrderResult> {
-  const { order, items, paymentMethod = "wallet" } = params;
+  const { order, items, paymentMethod = "wallet", forceLimitOverride = false } = params;
   const qrCode = crypto.randomUUID();
+
+  if (!order.parentId) {
+    return { success: false, error: "Parent ID is required.", code: "UNKNOWN" };
+  }
+  const parentId = order.parentId;
 
   if (paymentMethod === "wallet") {
     try {
@@ -77,7 +77,7 @@ export async function createOrder(params: {
         const [wallet] = await tx
           .select()
           .from(parentWalletsTable)
-          .where(eq(parentWalletsTable.parentId, order.parentId))
+          .where(eq(parentWalletsTable.parentId, parentId))
           .for("update");
 
         if (!wallet) {
@@ -98,6 +98,76 @@ export async function createOrder(params: {
           );
         }
 
+        if (!forceLimitOverride) {
+
+          // ── Spending limit enforcement ──────────────────────────────────────────
+          const childProfile = await tx.query.childProfilesTable.findFirst({
+            where: eq(childProfilesTable.studentId, order.studentId!),
+            columns: { dailySpendingLimit: true, weeklySpendingLimit: true },
+          });
+
+          if (childProfile?.dailySpendingLimit) {
+            const dailyLimit = parseFloat(childProfile.dailySpendingLimit);
+            const orderDateStr = (order.orderDate as string).split("T")[0];
+
+            const [{ spent }] = await tx
+              .select({
+                spent: sql<string>`coalesce(sum(${ordersTable.totalAmount}), '0')`,
+              })
+              .from(ordersTable)
+              .where(
+                and(
+                  eq(ordersTable.studentId, order.studentId!),
+                  inArray(ordersTable.status, [...ACTIVE_STATUSES]),
+                  sql`${ordersTable.orderDate} = ${orderDateStr}`,
+                ),
+              );
+
+            if (parseFloat(spent) + orderTotal > dailyLimit) {
+              throw Object.assign(
+                new Error(
+                  `Daily spending limit of PKR ${Math.round(dailyLimit)} reached. Already spent PKR ${Math.round(parseFloat(spent))}.`,
+                ),
+                { code: "DAILY_LIMIT_EXCEEDED" },
+              );
+            }
+          }
+
+          if (childProfile?.weeklySpendingLimit) {
+            const weeklyLimit = parseFloat(childProfile.weeklySpendingLimit);
+
+            const orderDay = new Date(order.orderDate as string);
+            const dayOfWeek = orderDay.getDay(); // 0 = Sun
+            const startOfWeek = new Date(orderDay);
+            startOfWeek.setDate(orderDay.getDate() - dayOfWeek);
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+            const [{ spent }] = await tx
+              .select({
+                spent: sql<string>`coalesce(sum(${ordersTable.totalAmount}), '0')`,
+              })
+              .from(ordersTable)
+              .where(
+                and(
+                  eq(ordersTable.studentId, order.studentId!),
+                  inArray(ordersTable.status, [...ACTIVE_STATUSES]),
+                  sql`${ordersTable.orderDate} >= ${startOfWeek.toISOString().split("T")[0]}`,
+                  sql`${ordersTable.orderDate} <= ${endOfWeek.toISOString().split("T")[0]}`,
+                ),
+              );
+
+            if (parseFloat(spent) + orderTotal > weeklyLimit) {
+              throw Object.assign(
+                new Error(
+                  `Weekly spending limit of PKR ${Math.round(weeklyLimit)} reached. Already spent PKR ${Math.round(parseFloat(spent))}.`,
+                ),
+                { code: "WEEKLY_LIMIT_EXCEEDED" },
+              );
+            }
+          }
+        }
+
         const [created] = await tx
           .insert(ordersTable)
           .values({ ...order, qrCode, status: "pending" })
@@ -113,12 +183,12 @@ export async function createOrder(params: {
         await tx
           .update(parentWalletsTable)
           .set({ balance: newBalance, updatedAt: new Date() })
-          .where(eq(parentWalletsTable.parentId, order.parentId));
+          .where(eq(parentWalletsTable.parentId, parentId));
 
         const [txRecord] = await tx
           .insert(transactionsTable)
           .values({
-            parentId: order.parentId,
+            parentId,
             orderId: created.id,
             amount: order.totalAmount as string,
             paymentMethod: "wallet",
@@ -130,12 +200,12 @@ export async function createOrder(params: {
 
         revalidateOrderCache(
           created.id,
-          created.parentId,
+          parentId,
           created.studentId,
           created.canteenId,
         );
-        revalidateTransactionCache(txRecord.id, order.parentId);
-        revalidateWallet(order.parentId);
+        revalidateTransactionCache(txRecord.id, parentId);
+        revalidateWallet(parentId);
         revalidatePath("/parent");
         revalidatePath("/parent/orders");
         revalidatePath("/parent/wallet");
@@ -144,19 +214,28 @@ export async function createOrder(params: {
         return created;
       });
 
-      // Fire-and-forget — don't let notifications fail the order response
-      getStudentName(created.studentId).then((name) =>
-        notifyParent(
-          created.parentId,
-          "order_confirmed",
-          PushEvents.orderPlaced(name, parseFloat(created.totalAmount)),
-        ).catch(console.error),
-      );
+      await invalidateStudentMealSuggestions(created.studentId, created.orderDate);
+
+      after(() => {
+        getStudentName(created.studentId).then((name) => {
+          notify({
+            userId: parentId,
+            type: "order_confirmed",
+            event: PushEvents.orderPlaced(name, parseFloat(created.totalAmount)),
+          }).catch(console.error);
+          notifyStaffNewOrder(created.canteenId, name, items.length).catch(console.error);
+        });
+      });
 
       return { success: true, data: created };
     } catch (e: any) {
       const code = e?.code;
-      if (code === "INSUFFICIENT_BALANCE" || code === "WALLET_NOT_FOUND") {
+      if (
+        code === "INSUFFICIENT_BALANCE" ||
+        code === "WALLET_NOT_FOUND" ||
+        code === "DAILY_LIMIT_EXCEEDED" ||
+        code === "WEEKLY_LIMIT_EXCEEDED"
+      ) {
         return { success: false, error: e.message, code };
       }
       console.error("[createOrder] unexpected error:", e);
@@ -181,23 +260,22 @@ export async function createOrder(params: {
         .values(items.map((item) => ({ ...item, orderId: created.id })));
     }
 
-    revalidateOrderCache(
-      created.id,
-      created.parentId,
-      created.studentId,
-      created.canteenId,
-    );
+    revalidateOrderCache(created.id, parentId, created.studentId, created.canteenId);
     revalidatePath("/parent");
     revalidatePath("/parent/orders");
 
-    // Stripe orders also get notifications
-    getStudentName(created.studentId).then((name) =>
-      notifyParent(
-        created.parentId,
-        "order_confirmed",
-        PushEvents.orderPlaced(name, parseFloat(created.totalAmount)),
-      ).catch(console.error),
-    );
+    await invalidateStudentMealSuggestions(created.studentId, created.orderDate);
+
+    after(() => {
+      getStudentName(created.studentId).then((name) => {
+        notify({
+          userId: parentId,
+          type: "order_confirmed",
+          event: PushEvents.orderPlaced(name, parseFloat(created.totalAmount)),
+        }).catch(console.error);
+        notifyStaffNewOrder(created.canteenId, name, items.length).catch(console.error);
+      })
+    });
 
     return { success: true, data: created };
   } catch (e) {
@@ -225,13 +303,17 @@ export async function updateOrderStatus(
   revalidatePath("/parent/orders");
   revalidatePath("/canteen-staff");
 
-  if (status === "ready") {
-    getStudentName(studentId).then((name) =>
-      notifyParent(parentId, "order_ready", PushEvents.mealReady(name)).catch(
-        console.error,
-      ),
-    );
-  }
+  after(() => {
+    if (status === "ready") {
+      getStudentName(studentId).then((name) =>
+        notify({
+          userId: parentId,
+          type: "order_ready",
+          event: PushEvents.mealReady(name),
+        }).catch(console.error),
+      );
+    }
+  })
 }
 
 // ── collectOrder ───────────────────────────────────────────────────────────────
@@ -257,13 +339,15 @@ export async function collectOrder(
   revalidatePath("/parent/orders");
   revalidatePath("/canteen-staff");
 
-  getStudentName(studentId).then((name) =>
-    notifyParent(
-      parentId,
-      "meal_collected",
-      PushEvents.orderCollected(name),
-    ).catch(console.error),
-  );
+  after(() => {
+    getStudentName(studentId).then((name) =>
+      notify({
+        userId: parentId,
+        type: "meal_collected",
+        event: PushEvents.orderCollected(name),
+      }).catch(console.error),
+    );
+  })
 }
 
 // ── cancelOrder ────────────────────────────────────────────────────────────────
@@ -275,7 +359,6 @@ export async function cancelOrder(
   canteenId: string,
 ) {
   await db.transaction(async (tx) => {
-    // 1. Fetch the order to get the amount and verify it's still pending
     const [order] = await tx
       .select()
       .from(ordersTable)
@@ -285,13 +368,11 @@ export async function cancelOrder(
     if (!order) throw new Error("Order not found.");
     if (order.status !== "pending") throw new Error("Only pending orders can be cancelled.");
 
-    // 2. Flip status to cancelled
     await tx
       .update(ordersTable)
       .set({ status: "cancelled" })
       .where(eq(ordersTable.id, orderId));
 
-    // 3. Refund wallet
     await tx
       .update(parentWalletsTable)
       .set({
@@ -300,7 +381,6 @@ export async function cancelOrder(
       })
       .where(eq(parentWalletsTable.parentId, parentId));
 
-    // 4. Write a refund transaction record
     await tx.insert(transactionsTable).values({
       parentId,
       orderId,
@@ -319,13 +399,17 @@ export async function cancelOrder(
   revalidatePath("/parent/wallet");
   revalidatePath("/canteen-staff");
 
-  getStudentName(studentId).then((name) =>
-    notifyParent(
-      parentId,
-      "order_cancelled",
-      PushEvents.orderCancelled(name),
-    ).catch(console.error),
-  );
+  after(() => {
+    getStudentName(studentId).then((name) => {
+      notify({
+        userId: parentId,
+        type: "order_cancelled",
+        event: PushEvents.orderCancelled(name),
+      }).catch(console.error);
+      notifyStaffOrderCancelled(canteenId, name).catch(console.error);
+    });
+  })
+
 }
 
 // ── Transactions ───────────────────────────────────────────────────────────────
@@ -338,16 +422,16 @@ export async function createTransaction(
     .values(transaction)
     .returning();
 
-  revalidateTransactionCache(created.id, created.parentId);
+  revalidateTransactionCache(created.id, created.parentId ?? "");
   revalidatePath("/parent/wallet");
   revalidatePath("/parent/settings");
 
-  if (transaction.transactionType === "wallet_topup") {
-    notifyParent(
-      created.parentId,
-      "payment_success",
-      PushEvents.walletTopUp(parseFloat(created.amount)),
-    ).catch(console.error);
+  if (transaction.transactionType === "wallet_topup" && created.parentId) {
+    notify({
+      userId: created.parentId,
+      type: "payment_success",
+      event: PushEvents.walletTopUp(parseFloat(created.amount)),
+    }).catch(console.error);
   }
 
   return created;
@@ -378,23 +462,20 @@ export async function fetchDailyMenuAction(canteenId: string, dateStr: string) {
   return getDailyMenu(canteenId, dateStr);
 }
 
-// Add this to the bottom of db/actions/Orders.ts
-
 // ── createRecurringOrders ──────────────────────────────────────────────────────
-// Creates N individual orders (one per day) under a shared recurringGroupId.
-// Each order is charged from the wallet in a single atomic transaction.
-// If the wallet balance is insufficient for the full series, the whole batch is rejected.
 
 export async function createRecurringOrders(params: {
   parentId: string;
   studentId: string;
   canteenId: string;
   days: {
-    date: string;         // YYYY-MM-DD
+    date: string;
     menuItemId: string;
-    unitPrice: string;    // decimal string e.g. "250.00"
+    unitPrice: string;
   }[];
-}): Promise<{ success: true; count: number } | { success: false; error: string; code: string }> {
+}): Promise<
+  { success: true; count: number } | { success: false; error: string; code: string }
+> {
   const { parentId, studentId, canteenId, days } = params;
 
   if (days.length === 0) {
@@ -402,14 +483,12 @@ export async function createRecurringOrders(params: {
   }
 
   const recurringGroupId = crypto.randomUUID();
-
   const totalAmount = days
     .reduce((sum, d) => sum + parseFloat(d.unitPrice), 0)
     .toFixed(2);
 
   try {
     await db.transaction(async (tx) => {
-      // 1. Lock wallet and check balance for the full series upfront
       const [wallet] = await tx
         .select()
         .from(parentWalletsTable)
@@ -417,7 +496,9 @@ export async function createRecurringOrders(params: {
         .for("update");
 
       if (!wallet) {
-        throw Object.assign(new Error("Wallet not found."), { code: "WALLET_NOT_FOUND" });
+        throw Object.assign(new Error("Wallet not found."), {
+          code: "WALLET_NOT_FOUND",
+        });
       }
 
       const balance = parseFloat(wallet.balance);
@@ -432,13 +513,9 @@ export async function createRecurringOrders(params: {
         );
       }
 
-      // 2. Insert all orders + items
       for (const day of days) {
         const qrCode = crypto.randomUUID();
-        const orderDate = day.date; // YYYY-MM-DD
-
-        // preparationDeadline = 07:30 on the order date (30 min before 8am pickup)
-        const deadline = new Date(`${orderDate}T07:30:00`);
+        const deadline = new Date(`${day.date}T07:30:00`);
 
         const [order] = await tx
           .insert(ordersTable)
@@ -453,7 +530,7 @@ export async function createRecurringOrders(params: {
             qrUsed: false,
             isRecurring: true,
             recurringGroupId,
-            orderDate,
+            orderDate: day.date,
             preparationDeadlineAt: deadline,
           })
           .returning();
@@ -466,44 +543,46 @@ export async function createRecurringOrders(params: {
         });
       }
 
-      // 3. Deduct full amount from wallet in one update
       const newBalance = (balance - total).toFixed(2);
       await tx
         .update(parentWalletsTable)
         .set({ balance: newBalance, updatedAt: new Date() })
         .where(eq(parentWalletsTable.parentId, parentId));
 
-      // 4. Single transaction record for the whole series
       await tx.insert(transactionsTable).values({
         parentId,
-        orderId: null,  // series — no single orderId
         amount: totalAmount,
         paymentMethod: "wallet",
         transactionType: "purchase",
         status: "success",
         processedAt: new Date(),
-        // Optionally store recurringGroupId in a notes/reference field if your schema has one
       });
     });
 
-    // Revalidate
     revalidatePath("/parent");
     revalidatePath("/parent/orders");
     revalidatePath("/parent/wallet");
     revalidatePath("/canteen-staff");
     revalidateWallet(parentId);
 
-    // Fire-and-forget notification
-    getStudentName(studentId).then((name) =>
-      notifyParent(
-        parentId,
-        "recurring_orders_placed",
-        {
-          title: "Recurring meals scheduled",
-          body: `${days.length} meals scheduled for ${name} totalling PKR ${parseFloat(totalAmount).toFixed(0)}.`,
-        },
-      ).catch(console.error),
+    await Promise.all(
+      days.map((d) => invalidateStudentMealSuggestions(studentId, d.date)),
     );
+
+    after(() => {
+      getStudentName(studentId).then((name) =>
+        notify({
+          userId: parentId,
+          type: "recurring_orders_placed",
+          event: {
+            title: "Recurring meals scheduled",
+            body: `${days.length} meals scheduled for ${name} totalling PKR ${parseFloat(totalAmount).toFixed(0)}.`,
+            url: "/parent/orders",
+            tag: "recurring-orders",
+          },
+        }).catch(console.error),
+      );
+    })
 
     return { success: true, count: days.length };
   } catch (e: any) {
@@ -512,6 +591,10 @@ export async function createRecurringOrders(params: {
       return { success: false, error: e.message, code };
     }
     console.error("[createRecurringOrders] unexpected error:", e);
-    return { success: false, error: "An unexpected error occurred.", code: "UNKNOWN" };
+    return {
+      success: false,
+      error: "An unexpected error occurred.",
+      code: "UNKNOWN",
+    };
   }
 }

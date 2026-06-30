@@ -23,6 +23,7 @@ import {
 import { createWalletTopupSession } from "@/server/actions/stripe";
 import { useToast, ToastContainer } from "@/components/useToast";
 import type { WalletTransaction, StudentSpending } from "@/db/queries/Wallets";
+import { formatPKR } from "@/lib/currency";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -48,9 +49,6 @@ interface WalletClientProps {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
-function fmt(amount: number) {
-    return `PKR ${Math.round(amount).toLocaleString()}`;
-}
 
 function txIcon(type: WalletTransaction["transactionType"]) {
     if (type === "wallet_topup")
@@ -178,11 +176,11 @@ function TopupModal({
                 {/* Custom amount input */}
                 <div className="flex flex-col gap-1.5">
                     <label className="text-[10px] font-bold text-(--text-muted) uppercase tracking-widest">
-                        Custom Amount (PKR)
+                        Custom Amount (Rs.)
                     </label>
                     <div className="flex items-center gap-3 px-4 py-3 bg-(--bg-secondary) rounded-xl border border-(--border-card) focus-within:border-(--text-primary)/40 transition-colors">
                         <span className="text-sm font-bold text-(--text-muted) shrink-0">
-                            PKR
+                            Rs.
                         </span>
                         <input
                             type="number"
@@ -232,7 +230,7 @@ function TopupModal({
                             You will add
                         </span>
                         <span className="text-base font-bold text-green-600">
-                            {fmt(parsed)}
+                            {formatPKR(parsed)}
                         </span>
                     </div>
                 )}
@@ -246,7 +244,7 @@ function TopupModal({
                         : "bg-(--bg-secondary) text-(--text-muted) cursor-not-allowed"
                         }`}
                 >
-                    {loading ? "Redirecting to Stripe…" : `Pay ${isValid ? fmt(parsed) : ""}`}
+                    {loading ? "Redirecting to Stripe…" : `Pay ${isValid ? formatPKR(parsed) : ""}`}
                 </button>
 
                 <p className="text-center text-[9px] text-(--text-muted) font-medium uppercase tracking-wide">
@@ -325,7 +323,7 @@ export function WalletClient({
                                     className={`text-4xl font-bold mt-2 tracking-tight ${isLowBalance ? "text-red-500" : "text-(--text-primary)"
                                         }`}
                                 >
-                                    {fmt(balance)}
+                                    {formatPKR(balance)}
                                 </p>
                                 {isLowBalance && (
                                     <p className="text-xs text-red-400 font-medium mt-1">
@@ -355,7 +353,7 @@ export function WalletClient({
                             <TrendingDown size={14} className="text-red-400" />
                         </div>
                         <p className="text-2xl font-bold text-(--text-primary)">
-                            {fmt(stats.weekSpent)}
+                            {formatPKR(stats.weekSpent)}
                         </p>
                         <p className="text-xs text-(--text-muted) font-medium">
                             spent on meals
@@ -371,11 +369,11 @@ export function WalletClient({
                             <TrendingUp size={14} className="text-green-500" />
                         </div>
                         <p className="text-2xl font-bold text-(--text-primary)">
-                            {fmt(stats.monthSpent)}
+                            {formatPKR(stats.monthSpent)}
                         </p>
                         <p className="text-xs text-(--text-muted) font-medium">
                             {stats.txCount} transaction{stats.txCount !== 1 ? "s" : ""} ·{" "}
-                            {fmt(stats.monthTopups)} topped up
+                            {formatPKR(stats.monthTopups)} topped up
                         </p>
                     </div>
                 </div>
@@ -459,8 +457,8 @@ export function WalletClient({
                                             <span
                                                 className={`text-sm font-bold tabular-nums ${txColor(tx.transactionType)}`}
                                             >
-                                                {txSign(tx.transactionType)} PKR{" "}
-                                                {Math.round(parseFloat(tx.amount)).toLocaleString()}
+
+                                                {txSign(tx.transactionType)} {formatPKR(parseFloat(tx.amount))}
                                             </span>
                                             {statusBadge(tx.status)}
                                         </div>
@@ -516,7 +514,7 @@ export function WalletClient({
                                                         </div>
                                                     </div>
                                                     <span className="text-base font-bold text-(--text-primary) tabular-nums">
-                                                        {fmt(s.totalSpent)}
+                                                        {formatPKR(s.totalSpent)}
                                                     </span>
                                                 </div>
 
@@ -537,7 +535,7 @@ export function WalletClient({
                                             Total (30 days)
                                         </span>
                                         <span className="text-base font-bold text-(--text-primary) tabular-nums">
-                                            {fmt(
+                                            {formatPKR(
                                                 studentSpending.reduce((s, r) => s + r.totalSpent, 0),
                                             )}
                                         </span>

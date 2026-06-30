@@ -24,7 +24,11 @@ interface StudentsClientProps {
   classes: Class[];
 }
 
-export function StudentsClient({ students, pendingLinks, classes }: StudentsClientProps) {
+export function StudentsClient({
+  students,
+  pendingLinks,
+  classes,
+}: StudentsClientProps) {
   const [tab, setTab] = useState<"students" | "pending">("students");
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -73,7 +77,8 @@ export function StudentsClient({ students, pendingLinks, classes }: StudentsClie
       const gradeIdx = headers.indexOf("grade");
       const sectionIdx = headers.indexOf("section");
       const imageIdx = headers.findIndex(
-        (h) => h === "imageurl" || h === "image" || h === "avatar" || h === "photo",
+        (h) =>
+          h === "imageurl" || h === "image" || h === "avatar" || h === "photo",
       );
 
       if (nameIdx === -1 || codeIdx === -1) {
@@ -101,9 +106,9 @@ export function StudentsClient({ students, pendingLinks, classes }: StudentsClie
           }
 
           const imageUrl =
-            imageIdx !== -1 && row[imageIdx] && isValidUrl(row[imageIdx])
-              ? row[imageIdx]
-              : null;
+            imageIdx !== -1 && row[imageIdx] && isValidUrl(row[imageIdx]) ?
+              row[imageIdx]
+            : null;
 
           let classId: string | undefined;
           if (gradeIdx !== -1 && sectionIdx !== -1) {
@@ -138,9 +143,9 @@ export function StudentsClient({ students, pendingLinks, classes }: StudentsClie
         } else {
           setCsvError("");
           toast(
-            successCount === 1
-              ? "1 student imported successfully."
-              : `${successCount} students imported successfully.`,
+            successCount === 1 ?
+              "1 student imported successfully."
+            : `${successCount} students imported successfully.`,
             "success",
           );
         }
@@ -170,13 +175,14 @@ export function StudentsClient({ students, pendingLinks, classes }: StudentsClie
                 className="flex-1 lg:flex-none text-center rounded-md px-4 py-1.5 text-sm font-medium transition-all capitalize cursor-pointer"
                 style={{
                   background: tab === t ? "var(--bg-card)" : "transparent",
-                  color: tab === t ? "var(--text-primary)" : "var(--text-secondary)",
+                  color:
+                    tab === t ? "var(--text-primary)" : "var(--text-secondary)",
                   boxShadow: tab === t ? "var(--shadow-card)" : undefined,
                 }}
               >
-                {t === "pending"
-                  ? `Pending (${pendingLinks.length})`
-                  : "All students"}
+                {t === "pending" ?
+                  `Pending (${pendingLinks.length})`
+                : "All students"}
               </button>
             ))}
           </div>
@@ -191,7 +197,11 @@ export function StudentsClient({ students, pendingLinks, classes }: StudentsClie
                   background: "var(--bg-secondary)",
                 }}
               >
-                <Search size={14} className="shrink-0" style={{ color: "var(--text-muted)" }} />
+                <Search
+                  size={14}
+                  className="shrink-0"
+                  style={{ color: "var(--text-muted)" }}
+                />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -214,24 +224,25 @@ export function StudentsClient({ students, pendingLinks, classes }: StudentsClie
                 />
                 <label
                   htmlFor="student-csv-file"
-                  className="flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium cursor-pointer transition-all hover:bg-[var(--bg-secondary)]"
+                  className="flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium cursor-pointer transition-all hover:bg-(--bg-secondary)"
                   style={{
                     borderColor: "var(--border-input)",
                     color: "var(--text-secondary)",
                   }}
                 >
-                  {isCsvPending ? (
+                  {isCsvPending ?
                     <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    <Upload size={14} />
-                  )}
+                  : <Upload size={14} />}
                   <span>Import CSV</span>
                 </label>
 
                 <button
                   onClick={() => setShowAdd(true)}
                   className="flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium cursor-pointer"
-                  style={{ background: "var(--accent)", color: "var(--accent-text)" }}
+                  style={{
+                    background: "var(--accent)",
+                    color: "var(--accent-text)",
+                  }}
                 >
                   <Plus size={15} /> <span>Add</span>
                 </button>
@@ -250,21 +261,41 @@ export function StudentsClient({ students, pendingLinks, classes }: StudentsClie
               boxShadow: "var(--shadow-card)",
             }}
           >
-            {filtered.length === 0 ? (
+            {filtered.length === 0 ?
               <div className="py-16 text-center">
-                <UserPlus size={32} className="mx-auto mb-3" style={{ color: "var(--text-muted)" }} />
-                <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                  {search ? "No students match your search." : "No students enrolled yet."}
+                <UserPlus
+                  size={32}
+                  className="mx-auto mb-3"
+                  style={{ color: "var(--text-muted)" }}
+                />
+                <p
+                  className="text-sm"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  {search ?
+                    "No students match your search."
+                  : "No students enrolled yet."}
                 </p>
               </div>
-            ) : (
-              <div className="w-full">
+            : <div className="w-full">
                 {/* Desktop table */}
                 <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr style={{ borderBottom: "1px solid var(--border-primary)" }}>
-                        {["Student", "Code", "Class", "Allergens", "Parents", "Ordering", ""].map((h) => (
+                      <tr
+                        style={{
+                          borderBottom: "1px solid var(--border-primary)",
+                        }}
+                      >
+                        {[
+                          "Student",
+                          "Code",
+                          "Class",
+                          "Allergens",
+                          "Parents",
+                          "Ordering",
+                          "",
+                        ].map((h) => (
                           <th
                             key={h}
                             className="px-4 py-3 text-left text-xs font-medium tracking-wider"
@@ -291,7 +322,10 @@ export function StudentsClient({ students, pendingLinks, classes }: StudentsClie
                 </div>
 
                 {/* Mobile cards */}
-                <div className="md:hidden divide-y" style={{ borderColor: "var(--border-primary)" }}>
+                <div
+                  className="md:hidden divide-y"
+                  style={{ borderColor: "var(--border-primary)" }}
+                >
                   {filtered.map((student) => (
                     <StudentRow
                       key={student.id}
@@ -304,11 +338,13 @@ export function StudentsClient({ students, pendingLinks, classes }: StudentsClie
                   ))}
                 </div>
               </div>
-            )}
+            }
           </div>
         )}
 
-        {tab === "pending" && <PendingLinksPanel links={pendingLinks} toast={toast} />}
+        {tab === "pending" && (
+          <PendingLinksPanel links={pendingLinks} toast={toast} />
+        )}
       </div>
 
       {/* Add modal */}
@@ -316,7 +352,10 @@ export function StudentsClient({ students, pendingLinks, classes }: StudentsClie
         <StudentModal
           classes={classes}
           onClose={() => setShowAdd(false)}
-          onSuccess={(msg) => { toast(msg, "success"); setShowAdd(false); }}
+          onSuccess={(msg) => {
+            toast(msg, "success");
+            setShowAdd(false);
+          }}
           onError={(msg) => toast(msg, "error")}
         />
       )}
@@ -327,7 +366,10 @@ export function StudentsClient({ students, pendingLinks, classes }: StudentsClie
           student={editingStudent}
           classes={classes}
           onClose={() => setEditingStudent(null)}
-          onSuccess={(msg) => { toast(msg, "success"); setEditingStudent(null); }}
+          onSuccess={(msg) => {
+            toast(msg, "success");
+            setEditingStudent(null);
+          }}
           onError={(msg) => toast(msg, "error")}
         />
       )}

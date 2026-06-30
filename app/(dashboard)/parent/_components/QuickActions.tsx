@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useTransition } from "react";
+import { useTransition } from "react";
 import Link from "next/link";
 import {
   UtensilsCrossed,
@@ -45,7 +45,7 @@ const ACTIONS = [
 
 export function QuickActions() {
   return (
-    <section className="w-full bg-[var(--bg-card)] border border-[var(--border-card)] rounded-2xl p-6 shadow-sm">
+    <section className="w-full bg-(--bg-card) border border-(--border-card) rounded-2xl p-6 shadow-sm">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-50">
           Quick actions
@@ -58,7 +58,7 @@ export function QuickActions() {
             <Link
               key={action.href}
               href={action.href}
-              className="flex items-center gap-3.5 p-3 rounded-xl hover:bg-[var(--bg-secondary)] transition-all group"
+              className="flex items-center gap-3.5 p-3 rounded-xl hover:bg-(--bg-secondary) transition-all group"
             >
               <div
                 className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${action.color}`}
@@ -168,7 +168,7 @@ export function PendingApprovals({ approvals }: PendingApprovalsProps) {
   if (approvals.length === 0) return null;
 
   return (
-    <section className="w-full bg-[var(--bg-card)] border border-[var(--border-card)] rounded-2xl p-6 shadow-sm">
+    <section className="w-full bg-(--bg-card) border border-(--border-card) rounded-2xl p-6 shadow-sm">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
           Needs approval

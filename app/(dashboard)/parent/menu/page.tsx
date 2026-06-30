@@ -45,8 +45,9 @@ export default async function MenuPage({
   const selectedCanteenId = filters.canteen ?? activeCanteens[0]?.id ?? "";
 
   // Today's menu for the cart
-  const menuSchedule = selectedCanteenId
-    ? await getDailyMenu(selectedCanteenId, selectedDate)
+  const menuSchedule =
+    selectedCanteenId ?
+      await getDailyMenu(selectedCanteenId, selectedDate)
     : [];
 
   const flattenedMenuItems = menuSchedule.map((item) => ({
@@ -62,7 +63,10 @@ export default async function MenuPage({
   // ── menuByDate for the recurring modal ────────────────────────────────────
   // Fetch 8 weeks of upcoming weekdays so the modal can show/pick meals.
   // We run these in parallel — getDailyMenu is cheap (indexed canteen+date).
-  let menuByDate: Record<string, { id: string; name: string; price: string }[]> = {};
+  let menuByDate: Record<
+    string,
+    { id: string; name: string; price: number }[]
+  > = {};
 
   if (selectedCanteenId) {
     const weekdays = getUpcomingWeekdays(new Date(), 8);
@@ -89,12 +93,22 @@ export default async function MenuPage({
   // Optional — if getNutritionAverages isn't built yet, the modal degrades
   // gracefully (defaults to first item per day, no AI pre-fill).
   type NutritionEntry = {
-    avg: { calories: number; protein: number; carbs: number; fat: number; fiber: number };
-    targets: { calories: number; protein: number; carbs: number; fat: number; fiber: number };
+    avg: {
+      calories: number;
+      protein: number;
+      carbs: number;
+      fat: number;
+      fiber: number;
+    };
+    targets: {
+      calories: number;
+      protein: number;
+      carbs: number;
+      fat: number;
+      fiber: number;
+    };
   };
   const nutritionByChild: Record<string, NutritionEntry> = {};
-
-
 
   return (
     <div className="w-full max-w-6xl mx-auto">

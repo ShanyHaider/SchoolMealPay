@@ -15,12 +15,25 @@ import {
   revalidateSuperAdminUserCache,
   revalidateSuperAdminAuditCache,
 } from "@/lib/cacheRevalidation";
+import { notify, notifyMany } from "@/lib/notification/notify";
+import { PushEvents } from "@/lib/notification/webpush";
 
-/**
- * Update the school's total active student capacity limit.
- */
-export async function updateSchoolSubscriptionLimit(studentLimit: number, adminUserId: string) {
-  // CRITICAL SECURITY GUARD
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+async function getSchoolAdminIds(): Promise<string[]> {
+  const admins = await db.query.usersTable.findMany({
+    where: eq(usersTable.role, "school_admin"),
+    columns: { id: true },
+  });
+  return admins.map((a) => a.id);
+}
+
+// ── updateSchoolSubscriptionLimit ──────────────────────────────────────────────
+
+export async function updateSchoolSubscriptionLimit(
+  studentLimit: number,
+  adminUserId: string,
+) {
   await assertRole(["system_admin"]);
 
   if (studentLimit < 1 || studentLimit > 50000) {
@@ -37,7 +50,6 @@ export async function updateSchoolSubscriptionLimit(studentLimit: number, adminU
     .set({ studentLimit, updatedAt: new Date() })
     .where(eq(schoolSubscriptionTable.id, sub.id));
 
-  // Log in system compliance audit logs
   await db.insert(auditLogsTable).values({
     userId: adminUserId,
     action: "student_limit_adjusted",
@@ -47,19 +59,34 @@ export async function updateSchoolSubscriptionLimit(studentLimit: number, adminU
     newValues: { studentLimit },
   });
 
-  // Purge data caches cleanly
   revalidateSuperAdminSubscriptionCache();
   revalidateSuperAdminAuditCache();
-
   revalidatePath("/system-admin");
+
+  // Self-notification for system admin (in-app audit trail)
+  notify({
+    userId: adminUserId,
+    type: "limit_adjusted",
+    event: PushEvents.systemAdmin.limitAdjusted(studentLimit),
+    channels: ["in_app"],
+  }).catch(console.error);
+
+  // Notify school admins their capacity changed
+  const schoolAdminIds = await getSchoolAdminIds();
+  notifyMany(schoolAdminIds, {
+    type: "student_limit_changed",
+    event: PushEvents.admin.studentLimitChanged(studentLimit),
+  }).catch(console.error);
+
   return { success: true };
 }
 
-/**
- * Override/Toggle the school's active feature plan tier.
- */
-export async function toggleSchoolSubscriptionTier(tier: "free" | "premium_school", adminUserId: string) {
-  // CRITICAL SECURITY GUARD
+// ── toggleSchoolSubscriptionTier ───────────────────────────────────────────────
+
+export async function toggleSchoolSubscriptionTier(
+  tier: "free" | "premium_school",
+  adminUserId: string,
+) {
   await assertRole(["system_admin"]);
 
   const sub = await db.query.schoolSubscriptionTable.findFirst();
@@ -72,7 +99,6 @@ export async function toggleSchoolSubscriptionTier(tier: "free" | "premium_schoo
     .set({ tier, updatedAt: new Date() })
     .where(eq(schoolSubscriptionTable.id, sub.id));
 
-  // Log in audit logs
   await db.insert(auditLogsTable).values({
     userId: adminUserId,
     action: "subscription_tier_overridden",
@@ -82,19 +108,35 @@ export async function toggleSchoolSubscriptionTier(tier: "free" | "premium_schoo
     newValues: { tier },
   });
 
-  // Purge data caches cleanly
   revalidateSuperAdminSubscriptionCache();
   revalidateSuperAdminAuditCache();
-
   revalidatePath("/system-admin");
+
+  // Self-notification for system admin
+  notify({
+    userId: adminUserId,
+    type: "tier_overridden",
+    event: PushEvents.systemAdmin.tierOverridden(tier),
+    channels: ["in_app"],
+  }).catch(console.error);
+
+  // Notify school admins their tier changed
+  const schoolAdminIds = await getSchoolAdminIds();
+  notifyMany(schoolAdminIds, {
+    type: "subscription_tier_changed",
+    event: PushEvents.admin.tierChanged(tier),
+  }).catch(console.error);
+
   return { success: true };
 }
 
-/**
- * Block/Deactivate or Reactivate a system user in both DB and Clerk.
- */
-export async function toggleUserStatus(userId: string, targetActive: boolean, adminUserId: string) {
-  // CRITICAL SECURITY GUARD
+// ── toggleUserStatus ───────────────────────────────────────────────────────────
+
+export async function toggleUserStatus(
+  userId: string,
+  targetActive: boolean,
+  adminUserId: string,
+) {
   await assertRole(["system_admin"]);
 
   const user = await db.query.usersTable.findFirst({
@@ -106,13 +148,11 @@ export async function toggleUserStatus(userId: string, targetActive: boolean, ad
     throw new Error("Self-deactivation restriction constraint triggered.");
   }
 
-  // Update local DB status
   await db
     .update(usersTable)
     .set({ isActive: targetActive, updatedAt: new Date() })
     .where(eq(usersTable.id, userId));
 
-  // Perform corresponding Clerk operation
   try {
     const clerk = await clerkClient();
     if (!targetActive) {
@@ -124,7 +164,6 @@ export async function toggleUserStatus(userId: string, targetActive: boolean, ad
     console.error("Clerk user ban/unban failed:", err.message);
   }
 
-  // Record audit log
   await db.insert(auditLogsTable).values({
     userId: adminUserId,
     action: targetActive ? "user_reactivated" : "user_blocked",
@@ -134,19 +173,40 @@ export async function toggleUserStatus(userId: string, targetActive: boolean, ad
     newValues: { isActive: targetActive },
   });
 
-  // Purge data caches cleanly
   revalidateSuperAdminUserCache();
   revalidateSuperAdminAuditCache();
-
   revalidatePath("/system-admin");
+
+  // Notify the affected user — in_app only if suspending (no active session),
+  // both channels if reactivating
+  notify({
+    userId,
+    type: targetActive ? "account_reactivated" : "account_suspended",
+    event: targetActive
+      ? PushEvents.accountReactivated()
+      : PushEvents.accountSuspended(),
+    channels: targetActive ? ["in_app", "push"] : ["in_app"],
+  }).catch(console.error);
+
+  // Self-notification for system admin
+  notify({
+    userId: adminUserId,
+    type: targetActive ? "user_unblocked" : "user_blocked",
+    event: targetActive
+      ? PushEvents.systemAdmin.userUnblocked(user.name ?? user.email)
+      : PushEvents.systemAdmin.userBlocked(user.name ?? user.email),
+    channels: ["in_app"],
+  }).catch(console.error);
+
   return { success: true };
 }
 
-/**
- * Trigger global password/session reverification flags via Clerk.
- */
-export async function triggerClerkReverification(userId: string, adminUserId: string) {
-  // CRITICAL SECURITY GUARD
+// ── triggerClerkReverification ─────────────────────────────────────────────────
+
+export async function triggerClerkReverification(
+  userId: string,
+  adminUserId: string,
+) {
   await assertRole(["system_admin"]);
 
   const user = await db.query.usersTable.findFirst({
@@ -163,7 +223,6 @@ export async function triggerClerkReverification(userId: string, adminUserId: st
     console.error("Clerk session revocation failed:", err.message);
   }
 
-  // Record in audit logs
   await db.insert(auditLogsTable).values({
     userId: adminUserId,
     action: "session_reverification_triggered",
@@ -173,10 +232,9 @@ export async function triggerClerkReverification(userId: string, adminUserId: st
     newValues: { reverifiedAt: new Date().toISOString() },
   });
 
-  // Purge data caches cleanly
   revalidateSuperAdminUserCache();
   revalidateSuperAdminAuditCache();
-
   revalidatePath("/system-admin");
+
   return { success: true };
 }

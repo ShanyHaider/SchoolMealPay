@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
-import type { InventoryItem } from "./types";
+import type { InventoryItem } from "../../../../../types/inventoryTypes";
 
 export function InventoryAlertBanner({ lowItems }: { lowItems: InventoryItem[] }) {
     if (lowItems.length === 0) return null;

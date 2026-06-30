@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSignIn } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import { useClerk } from "@clerk/nextjs";
 import {
   AuthCard,
   AuthButton,
@@ -12,104 +13,82 @@ import {
 
 type Step = "email" | "code" | "password";
 
+const RESEND_COOLDOWN = 60;
+
 export default function ForgotPasswordPage() {
   const { signIn, fetchStatus } = useSignIn();
+  const { setActive } = useClerk();
   const router = useRouter();
 
   const [step, setStep] = useState<Step>("email");
+  const [email, setEmail] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [passwordMismatch, setPasswordMismatch] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
 
   const loading = fetchStatus === "fetching";
 
-  // ── Step 1: identify user & send reset code ──────────────
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
+  const sendCode = async (emailAddress: string) => {
+    const { error: createError } = await signIn.create({
+      identifier: emailAddress,
+    });
+    if (createError) {
+      setErrorMessage(createError.longMessage ?? createError.message ?? "Something went wrong.");
+      return false;
+    }
+    const { error: sendError } = await signIn.resetPasswordEmailCode.sendCode();
+    if (sendError) {
+      setErrorMessage(sendError.longMessage ?? sendError.message ?? "Failed to send code.");
+      return false;
+    }
+    setCooldown(RESEND_COOLDOWN);
+    return true;
+  };
+
   const handleSendCode = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrorMessage(null);
-
-    const emailAddress = (
-      e.currentTarget.elements.namedItem("email") as HTMLInputElement
-    ).value;
-
-    try {
-      const { error: createError } = await signIn.create({
-        identifier: emailAddress,
-      });
-
-      if (createError) {
-        setErrorMessage(
-          createError.longMessage ??
-          createError.message ??
-          "Something went wrong.",
-        );
-        return;
-      }
-
-      const { error: sendError } =
-        await signIn.resetPasswordEmailCode.sendCode();
-
-      if (sendError) {
-        setErrorMessage(
-          sendError.longMessage ?? sendError.message ?? "Failed to send code.",
-        );
-        return;
-      }
-
-      setStep("code");
-    } catch (err: any) {
-      console.error("[ForgotPassword] caught error:", err);
-      setErrorMessage(
-        err?.errors?.[0]?.longMessage ??
-        err?.errors?.[0]?.message ??
-        "Something went wrong. Please try again.",
-      );
-    }
+    const emailAddress = (e.currentTarget.elements.namedItem("email") as HTMLInputElement).value;
+    setEmail(emailAddress);
+    const ok = await sendCode(emailAddress);
+    if (ok) setStep("code");
   };
 
-  // ── Step 2: verify the code ───────────────────────────────
+  const handleResend = async () => {
+    if (cooldown > 0 || !email) return;
+    setErrorMessage(null);
+    await sendCode(email);
+  };
+
   const handleVerifyCode = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrorMessage(null);
-
-    const code = (
-      e.currentTarget.elements.namedItem("resetCode") as HTMLInputElement
-    ).value;
-
+    const code = (e.currentTarget.elements.namedItem("resetCode") as HTMLInputElement).value;
     try {
-      const { error: verifyError } =
-        await signIn.resetPasswordEmailCode.verifyCode({ code });
-      if (verifyError) {
-        setErrorMessage(
-          verifyError.longMessage ??
-          verifyError.message ??
-          "Invalid or expired code.",
-        );
+      const { error } = await signIn.resetPasswordEmailCode.verifyCode({ code });
+      if (error) {
+        setErrorMessage(error.longMessage ?? error.message ?? "Invalid or expired code.");
         return;
       }
-
       setStep("password");
     } catch (err: any) {
-      setErrorMessage(
-        err?.errors?.[0]?.longMessage ??
-        err?.errors?.[0]?.message ??
-        "Something went wrong. Please try again.",
-      );
+      setErrorMessage(err?.errors?.[0]?.longMessage ?? "Something went wrong.");
     }
   };
 
-  // ── Step 3: set new password ──────────────────────────────
   const handleSetPassword = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrorMessage(null);
     setPasswordMismatch(false);
-
     const form = e.currentTarget;
-    const password = (
-      form.elements.namedItem("newPassword") as HTMLInputElement
-    ).value;
-    const confirmPassword = (
-      form.elements.namedItem("confirmPassword") as HTMLInputElement
-    ).value;
+    const password = (form.elements.namedItem("newPassword") as HTMLInputElement).value;
+    const confirmPassword = (form.elements.namedItem("confirmPassword") as HTMLInputElement).value;
 
     if (password !== confirmPassword) {
       setPasswordMismatch(true);
@@ -117,117 +96,84 @@ export default function ForgotPasswordPage() {
     }
 
     try {
-      const { error: submitError } =
-        await signIn.resetPasswordEmailCode.submitPassword({ password });
-      if (submitError) {
-        setErrorMessage(
-          submitError.longMessage ??
-          submitError.message ??
-          "Failed to reset password.",
-        );
+      const { error } = await signIn.resetPasswordEmailCode.submitPassword({ password });
+      if (error) {
+        setErrorMessage(error.longMessage ?? error.message ?? "Failed to reset password.");
         return;
       }
-
       if (signIn.status === "complete") {
-        await signIn.finalize({
-          navigate: ({ decorateUrl }) => router.push(decorateUrl("/dashboard")),
-        });
+        await setActive({ session: signIn.createdSessionId });
+        router.refresh();
+        router.replace("/dashboard");
       }
     } catch (err: any) {
-      setErrorMessage(
-        err?.errors?.[0]?.longMessage ??
-        err?.errors?.[0]?.message ??
-        "Something went wrong. Please try again.",
-      );
+      setErrorMessage(err?.errors?.[0]?.longMessage ?? "Something went wrong.");
     }
   };
 
-  // ── Step 1 UI: enter email ────────────────────────────────
   if (step === "email") {
     return (
-      <AuthCard
-        title="Forgot password?"
-        subtitle="Enter your email and we'll send you a reset code"
-      >
-        <form className="auth-form" onSubmit={handleSendCode}>
-          <AuthInput
-            id="email"
-            type="email"
-            placeholder="you@example.com"
-            required
-          />
-
-          {errorMessage && <p className="auth-error">{errorMessage}</p>}
-
+      <AuthCard title="Forgot password?" subtitle="Enter your email and we'll send you a reset code">
+        <form className="space-y-4" onSubmit={handleSendCode}>
+          <AuthInput id="email" type="email" placeholder="you@example.com" required />
+          {errorMessage && <p className="text-xs" style={{ color: "#ef4444" }}>{errorMessage}</p>}
           <AuthButton type="submit" disabled={loading}>
             {loading ? "Sending…" : "Send reset code"}
           </AuthButton>
         </form>
-
-        <p className="auth-footer">
-          Remember your password? <Link href="/sign-in">Sign in</Link>
+        <p className="mt-4 text-center text-sm" style={{ color: "var(--text-muted)" }}>
+          Remember your password?{" "}
+          <Link href="/sign-in" className="font-medium" style={{ color: "var(--text-primary)" }}>
+            Sign in
+          </Link>
         </p>
       </AuthCard>
     );
   }
 
-  // ── Step 2 UI: enter code ─────────────────────────────────
   if (step === "code") {
     return (
       <AuthCard
         title="Check your email"
-        subtitle="We sent a 6-digit code to your email address"
+        subtitle={`We sent a 6-digit code to ${email}`}
       >
-        <form className="auth-form" onSubmit={handleVerifyCode}>
-          <AuthInput
-            id="resetCode"
-            type="text"
-            placeholder="Enter 6-digit code"
-            required
-          />
-
-          {errorMessage && <p className="auth-error">{errorMessage}</p>}
-
+        <form className="space-y-4" onSubmit={handleVerifyCode}>
+          {/* key forces React to remount with empty value when step changes */}
+          <AuthInput key="resetCode" id="resetCode" type="text" placeholder="Enter 6-digit code" required />
+          {errorMessage && <p className="text-xs" style={{ color: "#ef4444" }}>{errorMessage}</p>}
           <AuthButton type="submit" disabled={loading}>
             {loading ? "Verifying…" : "Verify code"}
           </AuthButton>
         </form>
 
-        <p className="auth-footer">
+        <p className="mt-4 text-center text-sm" style={{ color: "var(--text-muted)" }}>
           Didn't receive it?{" "}
-          <button className="auth-link-btn" onClick={() => setStep("email")}>
-            Try again
-          </button>
+          {cooldown > 0 ? (
+            <span style={{ color: "var(--text-muted)" }}>
+              Resend in {cooldown}s
+            </span>
+          ) : (
+            <button
+              onClick={handleResend}
+              disabled={loading}
+              className="font-medium disabled:opacity-50"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Resend code
+            </button>
+          )}
         </p>
       </AuthCard>
     );
   }
 
-  // ── Step 3 UI: set new password ───────────────────────────
   return (
-    <AuthCard
-      title="Choose a new password"
-      subtitle="Make it strong and memorable"
-    >
-      <form className="auth-form" onSubmit={handleSetPassword}>
-        <AuthInput
-          id="newPassword"
-          type="password"
-          placeholder="••••••••"
-          required
-        />
-        <AuthInput
-          id="confirmPassword"
-          type="password"
-          placeholder="••••••••"
-          required
-        />
-
-        {passwordMismatch && (
-          <p className="auth-error">Passwords do not match.</p>
-        )}
-        {errorMessage && <p className="auth-error">{errorMessage}</p>}
-
+    <AuthCard title="Choose a new password" subtitle="Make it strong and memorable">
+      <form className="space-y-4" onSubmit={handleSetPassword}>
+        <AuthInput id="newPassword" type="password" placeholder="New password" required />
+        <AuthInput id="confirmPassword" type="password" placeholder="Confirm password" required />
+        {passwordMismatch && <p className="text-xs" style={{ color: "#ef4444" }}>Passwords do not match.</p>}
+        {errorMessage && <p className="text-xs" style={{ color: "#ef4444" }}>{errorMessage}</p>}
         <AuthButton type="submit" disabled={loading}>
           {loading ? "Resetting…" : "Reset password"}
         </AuthButton>

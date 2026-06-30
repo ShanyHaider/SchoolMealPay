@@ -2,7 +2,7 @@
 
 import { Plus } from "lucide-react";
 import { PortalSelect } from "@/components/PortalSelect";
-import type { Canteen } from "./types";
+import type { Canteen } from "../../../../../types/inventoryTypes";
 
 interface InventoryControlsProps {
     canteens: Canteen[];

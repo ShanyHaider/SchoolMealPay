@@ -14,7 +14,9 @@ import {
     CheckCircle,
     Info,
     Check,
+    ChevronDown,
 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 
 type Notification = {
     id: string;
@@ -126,6 +128,14 @@ export function NotificationsClient({
 }) {
     const [items, setItems] = useState(notifications);
     const [isPending, startTransition] = useTransition();
+    const [expandedId, setExpandedId] = useState<string | null>(null);
+
+    function handleClick(notification: Notification) {
+        // Toggle expand
+        setExpandedId(prev => prev === notification.id ? null : notification.id);
+        // Mark as read if unread
+        if (!notification.isRead) handleMarkRead(notification.id);
+    }
 
     function handleMarkRead(id: string) {
         startTransition(async () => {
@@ -162,7 +172,6 @@ export function NotificationsClient({
 
     return (
         <div className="flex flex-col gap-1">
-            {/* Mark all read */}
             {unreadCount > 0 && (
                 <div className="flex justify-end mb-2">
                     <button
@@ -176,7 +185,6 @@ export function NotificationsClient({
                 </div>
             )}
 
-            {/* Grouped notifications */}
             {Object.entries(groups).map(([date, groupItems]) => (
                 <div key={date} className="flex flex-col gap-1">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1 py-2">
@@ -185,46 +193,83 @@ export function NotificationsClient({
                     {groupItems.map((notification) => {
                         const config = TYPE_CONFIG[notification.type] ?? TYPE_CONFIG.system;
                         const Icon = config.icon;
+                        const isExpanded = expandedId === notification.id;
 
                         return (
                             <div
                                 key={notification.id}
-                                className={`flex items-start gap-4 p-4 rounded-2xl border transition-all cursor-pointer ${notification.isRead ?
-                                        "bg-white dark:bg-zinc-900 border-gray-100 dark:border-zinc-800 opacity-60"
-                                        : "bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-700 hover:border-black dark:hover:border-white"
-                                    }`}
-                                onClick={() =>
-                                    !notification.isRead && handleMarkRead(notification.id)
-                                }
+                                onClick={() => handleClick(notification)}
+                                className={`flex flex-col rounded-2xl border transition-all cursor-pointer ${notification.isRead
+                                    ? "bg-white dark:bg-zinc-900 border-gray-100 dark:border-zinc-800 opacity-60"
+                                    : "bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-700 hover:border-black dark:hover:border-white"
+                                    } ${isExpanded ? "!opacity-100 !border-black dark:!border-white" : ""}`}
                             >
-                                {/* Icon */}
-                                <div
-                                    className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${config.bg}`}
-                                >
-                                    <Icon size={18} className={config.iconColor} />
-                                </div>
-
-                                {/* Content */}
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-start justify-between gap-2">
-                                        <p
-                                            className={`text-sm font-bold ${notification.isRead ? "text-gray-500 dark:text-gray-400" : "text-black dark:text-white"}`}
-                                        >
-                                            {notification.title}
-                                        </p>
-                                        <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
-                                            {timeAgo(notification.sentAt)}
-                                        </span>
+                                {/* Header row — always visible */}
+                                <div className="flex items-start gap-4 p-4">
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${config.bg}`}>
+                                        <Icon size={18} className={config.iconColor} />
                                     </div>
-                                    <p className="text-sm text-gray-500 mt-0.5 leading-relaxed">
-                                        {notification.message}
-                                    </p>
+
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <p className={`text-sm font-bold ${notification.isRead
+                                                ? "text-gray-500 dark:text-gray-400"
+                                                : "text-black dark:text-white"
+                                                }`}>
+                                                {notification.title}
+                                            </p>
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                                <span className="text-xs text-gray-400 whitespace-nowrap">
+                                                    {timeAgo(notification.sentAt)}
+                                                </span>
+                                                <ChevronDown
+                                                    size={14}
+                                                    className={`text-gray-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                                                />
+                                            </div>
+                                        </div>
+                                        {/* Preview when collapsed */}
+                                        {!isExpanded && (
+                                            <p className="text-sm text-gray-500 mt-0.5 truncate">
+                                                {notification.message}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {!notification.isRead && (
+                                        <div className="w-2 h-2 rounded-full bg-black dark:bg-white flex-shrink-0 mt-1.5" />
+                                    )}
                                 </div>
 
-                                {/* Unread dot */}
-                                {!notification.isRead && (
-                                    <div className="w-2 h-2 rounded-full bg-black dark:bg-white flex-shrink-0 mt-1.5" />
-                                )}
+                                {/* Expanded body */}
+                                <AnimatePresence initial={false}>
+                                    {isExpanded && (
+                                        <motion.div
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: "auto", opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            transition={{ duration: 0.2, ease: "easeInOut" }}
+                                            className="overflow-hidden"
+                                        >
+                                            <div className="px-4 pb-4 pt-0 ml-14">
+                                                <div className="h-px bg-gray-100 dark:bg-zinc-800 mb-3" />
+                                                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                                                    {notification.message}
+                                                </p>
+                                                <p className="text-[11px] text-gray-400 mt-2">
+                                                    {new Date(notification.sentAt).toLocaleDateString("en-US", {
+                                                        weekday: "long",
+                                                        month: "long",
+                                                        day: "numeric",
+                                                        year: "numeric",
+                                                        hour: "2-digit",
+                                                        minute: "2-digit",
+                                                    })}
+                                                </p>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
                         );
                     })}

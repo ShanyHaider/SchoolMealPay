@@ -1,5 +1,16 @@
 import { z } from "zod";
 
+
+const imageUrlField = z
+    .string()
+    .optional()
+    .nullable()
+    .or(z.literal(""))
+    .refine(
+        (v) => !v || v === "" || v.startsWith("data:image/") || /^https?:\/\//.test(v),
+        "Must be a valid URL or uploaded image"
+    );
+
 export const schoolProfileSchema = z.object({
     name: z.string().min(1, "School name is required").max(100),
     address: z.string().max(200).optional().nullable(),
@@ -10,8 +21,9 @@ export const schoolProfileSchema = z.object({
         .optional()
         .nullable()
         .or(z.literal("")),
-    email: z.string().email("Invalid email address").optional().nullable().or(z.literal("")),
-    logoUrl: z.string().url("Invalid URL").optional().nullable().or(z.literal("")),
+    email: z.email("Invalid email address").optional().nullable().or(z.literal("")),
+    logoUrl: imageUrlField,
+    bannerUrl: imageUrlField,
     primaryColor: z
         .string()
         .regex(/^#[0-9A-Fa-f]{6}$/, "Must be a valid hex colour e.g. #1a2b3c")

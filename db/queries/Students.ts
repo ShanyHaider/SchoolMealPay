@@ -5,7 +5,7 @@ import {
   studentAllergensTable,
   parentChildLinksTable,
 } from "@/drizzle/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { getGlobalTag, getIdTag, getUserTag, getStudentTag } from "@/lib/cache";
 
@@ -68,7 +68,10 @@ export async function getChildrenByParent(parentId: string) {
   cacheLife("minutes");
   cacheTag(getGlobalTag("parent-child-links"), getUserTag("parent-child-links", parentId));
   return db.query.parentChildLinksTable.findMany({
-    where: eq(parentChildLinksTable.parentId, parentId),
+    where: and(
+      eq(parentChildLinksTable.parentId, parentId),
+      eq(parentChildLinksTable.status, "approved"),
+    ),
     with: {
       student: {
         with: { childProfile: true, allergens: true, class: true },

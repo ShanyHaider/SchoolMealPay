@@ -8,7 +8,9 @@ import {
   DollarSign,
   Award,
   Calendar,
+  Download,
 } from "lucide-react";
+import { DownloadReportButton } from "./DownloadReportButton";
 
 type DailyRow = { date: string; revenue: string | null; orderCount: number };
 type TopItem = {
@@ -182,9 +184,7 @@ export function ReportsClient({
             className="px-3 py-1.5 text-sm rounded-lg border outline-none"
             style={inputSty}
           />
-          <span className="text-sm" style={{ color: "var(--text-muted)" }}>
-            to
-          </span>
+          <span className="text-sm" style={{ color: "var(--text-muted)" }}>to</span>
           <input
             type="date"
             value={end}
@@ -196,6 +196,17 @@ export function ReportsClient({
         <span className="text-xs" style={{ color: "var(--text-muted)" }}>
           (Reload page after changing dates — live filtering coming soon)
         </span>
+        <div className="ml-auto">
+          <DownloadReportButton
+            report={report}
+            start={start}
+            end={end}
+            totalRevenue={totalRevenue}
+            totalOrders={totalOrders}
+            avgOrderValue={avgOrderValue}
+            totalSold={totalSold}
+          />
+        </div>
       </div>
 
       {/* Summary stats */}
@@ -254,7 +265,7 @@ export function ReportsClient({
                 No data for this period
               </p>
             </div>
-          : <MiniBarChart data={chartData} />}
+            : <MiniBarChart data={chartData} />}
         </div>
 
         {/* Orders chart */}
@@ -279,7 +290,7 @@ export function ReportsClient({
                 No data for this period
               </p>
             </div>
-          : <MiniBarChart data={orderChartData} />}
+            : <MiniBarChart data={orderChartData} />}
         </div>
       </div>
 
@@ -303,7 +314,7 @@ export function ReportsClient({
             >
               No orders in this period
             </p>
-          : <div className="space-y-2">
+            : <div className="space-y-2">
               {report.topItems.slice(0, 8).map((item, idx) => {
                 const maxSold = parseFloat(
                   report.topItems[0]?.totalSold ?? "1",
@@ -373,7 +384,7 @@ export function ReportsClient({
             >
               No orders in this period
             </p>
-          : <div className="space-y-3">
+            : <div className="space-y-3">
               {report.statusBreakdown.map((row) => {
                 const total = report.statusBreakdown.reduce(
                   (s, r) => s + r.count,
@@ -455,7 +466,7 @@ export function ReportsClient({
                           (r) => r.status === "collected",
                         )?.count ?? 0;
                       return total > 0 ?
-                          `${((collected / total) * 100).toFixed(0)}%`
+                        `${((collected / total) * 100).toFixed(0)}%`
                         : "—";
                     })()}
                   </span>

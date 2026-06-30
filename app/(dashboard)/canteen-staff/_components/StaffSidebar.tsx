@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import type { usersTable } from "@/drizzle/schema";
-import { SidebarProfilePopover } from "../../_components/SidebarProfilePopover";
+import { SidebarProfilePopover } from "../../../../components/SidebarProfilePopover";
 
 const NAV_ITEMS = [
   {
@@ -41,7 +41,11 @@ const NAV_ITEMS = [
   { href: "/canteen-staff/orders", label: "Live Orders", icon: ClipboardList },
   { href: "/canteen-staff/qr-scan", label: "QR Pickup", icon: QrCode },
   { href: "/canteen-staff/inventory", label: "Inventory", icon: Package },
-  { href: "/canteen-staff/menu", label: "Menu Schedule", icon: UtensilsCrossed },
+  {
+    href: "/canteen-staff/menu",
+    label: "Menu Schedule",
+    icon: UtensilsCrossed,
+  },
 ] as const;
 
 interface StaffSidebarProps {
@@ -55,7 +59,11 @@ interface StaffSidebarProps {
   notificationsTab: React.ReactNode;
 }
 
-export function StaffSidebar({ user, canteen, notificationsTab }: StaffSidebarProps) {
+export function StaffSidebar({
+  user,
+  canteen,
+  notificationsTab,
+}: StaffSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const pathname = usePathname();
@@ -66,13 +74,13 @@ export function StaffSidebar({ user, canteen, notificationsTab }: StaffSidebarPr
       <div className="lg:hidden fixed top-3.5 left-4 z-50 flex items-center h-9">
         <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
           <SheetTrigger asChild>
-            <button className="p-2 bg-[var(--bg-card)] border border-[var(--border-card)] rounded-lg shadow-sm active:scale-95 transition-transform flex items-center justify-center cursor-pointer">
-              <Menu className="w-5 h-5 text-[var(--text-primary)]" />
+            <button className="p-2 bg-(--bg-card) border border-(--border-card) rounded-lg shadow-sm active:scale-95 transition-transform flex items-center justify-center cursor-pointer">
+              <Menu className="w-5 h-5 text-(--text-primary)" />
             </button>
           </SheetTrigger>
           <SheetContent
             side="left"
-            className="p-0 w-[280px] bg-[var(--bg-primary)] border-r border-[var(--border-primary)]"
+            className="p-0 w-[280px] bg-(--bg-primary) border-r border-(--border-primary)"
           >
             <div className="sr-only">
               <SheetTitle>Canteen Operations Menu</SheetTitle>
@@ -96,7 +104,7 @@ export function StaffSidebar({ user, canteen, notificationsTab }: StaffSidebarPr
       <motion.aside
         initial={false}
         animate={{ width: isCollapsed ? 82 : 270 }}
-        className="fixed top-0 left-0 bottom-0 hidden lg:flex flex-col bg-[var(--bg-primary)] border-r border-[var(--border-primary)] z-40 overflow-hidden"
+        className="fixed top-0 left-0 bottom-0 hidden lg:flex flex-col bg-(--bg-primary) border-r border-(--border-primary) z-40 overflow-hidden"
       >
         <SidebarInner
           user={user}
@@ -150,9 +158,9 @@ function SidebarInner({
   closeMobileMenu?: () => void;
 }) {
   const isActiveRoute = (href: string, exact?: boolean) =>
-    exact
-      ? pathname === href
-      : pathname === href || pathname.startsWith(href + "/");
+    exact ?
+      pathname === href
+    : pathname === href || pathname.startsWith(href + "/");
 
   const operatingHours = formatOperatingHours(
     canteen?.operatingFrom ?? null,
@@ -181,25 +189,24 @@ function SidebarInner({
                 <UtensilsCrossed size={17} />
               </div>
               <div className="flex flex-col leading-none min-w-0">
-                <span className="font-semibold text-[var(--text-primary)] truncate">
+                <span className="font-semibold text-(--text-primary) truncate">
                   {canteen?.name ?? "SchoolMealPay"}
                 </span>
-                <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)] font-medium mt-1">
-                  {canteen ? (
+                <span className="text-[10px] uppercase tracking-[0.2em] text-(--text-muted) font-medium mt-1">
+                  {canteen ?
                     <span className="flex items-center gap-1.5">
                       <span
                         className="w-1.5 h-1.5 rounded-full inline-block"
                         style={{
                           background: canteen.isActive ? "#22c55e" : "#6b7280",
-                          boxShadow: canteen.isActive ? "0 0 6px #22c55e" : undefined,
+                          boxShadow:
+                            canteen.isActive ? "0 0 6px #22c55e" : undefined,
                         }}
                       />
                       {canteen.isActive ? "Open" : "Closed"}
                       {operatingHours ? ` · ${operatingHours}` : ""}
                     </span>
-                  ) : (
-                    "Canteen Staff"
-                  )}
+                  : "Canteen Staff"}
                 </span>
               </div>
             </motion.div>
@@ -210,11 +217,13 @@ function SidebarInner({
           <button
             onClick={onToggle}
             className={cn(
-              "p-2 hover:bg-[var(--bg-tertiary)] rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer",
+              "p-2 hover:bg-(--bg-tertiary) rounded-lg text-(--text-muted) hover:text-(--text-primary) transition-colors cursor-pointer",
               isCollapsed && "mx-auto",
             )}
           >
-            {isCollapsed ? <PanelLeftOpen size={21} /> : <PanelLeftClose size={21} />}
+            {isCollapsed ?
+              <PanelLeftOpen size={21} />
+            : <PanelLeftClose size={21} />}
           </button>
         )}
       </div>
@@ -238,16 +247,20 @@ function SidebarInner({
                     className={cn(
                       "relative flex items-center rounded-xl p-3 transition-all duration-200 group overflow-hidden",
                       isCollapsed ? "justify-center" : "gap-3",
-                      isActive
-                        ? "text-[var(--text-primary)] font-semibold"
-                        : "text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]",
+                      isActive ?
+                        "text-(--text-primary) font-semibold"
+                      : "text-(--text-secondary) hover:bg-(--bg-tertiary) hover:text-(--text-primary)",
                     )}
                   >
                     {isActive && (
                       <motion.div
                         layoutId="active-pill-staff"
-                        className="absolute inset-0 bg-[var(--bg-tertiary)] border border-[var(--border-card)] rounded-xl z-0 shadow-sm"
-                        transition={{ type: "spring", bounce: 0.15, duration: 0.5 }}
+                        className="absolute inset-0 bg-(--bg-tertiary) border border-(--border-card) rounded-xl z-0 shadow-sm"
+                        transition={{
+                          type: "spring",
+                          bounce: 0.15,
+                          duration: 0.5,
+                        }}
                       />
                     )}
                     <Icon
@@ -285,7 +298,7 @@ function SidebarInner({
       </nav>
 
       {/* Footer profile */}
-      <div className="mt-4 pt-4 border-t border-[var(--border-primary)]">
+      <div className="mt-4 pt-4 border-t border-(--border-primary)">
         <SidebarProfilePopover
           user={user}
           role="Canteen Staff"

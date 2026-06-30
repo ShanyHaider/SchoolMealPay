@@ -7,7 +7,6 @@ import { db } from "@/drizzle/db";
 import { eq } from "drizzle-orm";
 import {
   parentProSubscriptionsTable,
-  schoolSubscriptionTable,
   subscriptionInvoicesTable,
 } from "@/drizzle/schema";
 import { cacheLife, cacheTag } from "next/cache";

@@ -37,7 +37,7 @@ export const menuItemsTable = pgTable("menu_items", {
     .references(() => canteensTable.id, { onDelete: "cascade" }),
   name: varchar().notNull(),
   description: text(),
-  price: decimal({ precision: 10, scale: 2 }).notNull(),
+  price: decimal({ precision: 10, scale: 2 }).notNull().$type<number>(),
   category: mealCategoryEnum().notNull(),
 
   // Nutrition tagging (SRS-115)

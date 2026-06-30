@@ -11,4 +11,4 @@ export const db: DbInstance =
     globalForDb.db ??
     drizzle(env.DATABASE_URL, { schema });
 
-if (process.env.NODE_ENV !== "production") globalForDb.db = db;
+if (process.env.NODE_ENV !== "production") globalForDb.db = db; 

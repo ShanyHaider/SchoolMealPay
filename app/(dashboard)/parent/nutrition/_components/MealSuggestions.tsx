@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { Sparkles, UtensilsCrossed, ChevronRight, RefreshCw } from "lucide-react";
-import { generateMealSuggestions } from "@/db/actions/Nutrition";
-import type { MealSuggestion, NutritionTargets } from "@/db/actions/Nutrition";
+import { generateMealSuggestions } from "@/db/actions/ai/nutrition";
+import type { MealSuggestion, NutritionTargets } from "@/db/actions/ai/nutrition";
 import type { NutritionAverages } from "@/types/nutritionTypes";
 import Link from "next/link";
 
@@ -15,60 +15,37 @@ const NUTRIENT_COLORS: Record<string, string> = {
     fiber: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
 };
 
-export function suggestionsStorageKey(childName: string) {
-    return `meal_suggestions_${childName.toLowerCase().replace(/\s+/g, "_")}`;
-}
-
 interface Props {
+    studentId: string;
     childName: string;
     avg: NutritionAverages;
     targets: NutritionTargets;
     topMeals: { name: string; healthStatus: string }[];
     verdict: string;
     concerns: string[];
-    // Actual canteen menu items — AI picks only from these
     menuItems: { id: string; name: string }[];
 }
 
 export function MealSuggestions({
-    childName, avg, targets, topMeals, verdict, concerns, menuItems,
+    studentId, childName, avg, targets, topMeals, verdict, concerns, menuItems,
 }: Props) {
     const [suggestions, setSuggestions] = useState<MealSuggestion[] | null>(null);
     const [isPending, startTransition] = useTransition();
     const [noMenu, setNoMenu] = useState(false);
 
-    function persist(data: MealSuggestion[]) {
-        try {
-            localStorage.setItem(
-                suggestionsStorageKey(childName),
-                JSON.stringify({ suggestions: data, generatedAt: Date.now() }),
-            );
-        } catch { }
-    }
-
-    function load(skipCache = false) {
+    function load() {
         if (menuItems.length === 0) { setNoMenu(true); return; }
-        if (!skipCache) {
-            try {
-                const raw = localStorage.getItem(suggestionsStorageKey(childName));
-                if (raw) {
-                    const { suggestions: cached, generatedAt } = JSON.parse(raw);
-                    if (Date.now() - generatedAt < 24 * 60 * 60 * 1000) {
-                        setSuggestions(cached);
-                        return;
-                    }
-                }
-            } catch { }
-        }
         startTransition(async () => {
             const data = await generateMealSuggestions(
-                childName, avg, targets, topMeals, verdict, concerns, menuItems,
+                childName, avg, targets, topMeals, verdict, concerns, menuItems, studentId,
             );
-            if (data) { persist(data); setSuggestions(data); }
+            if (data) setSuggestions(data);
         });
     }
 
-    useEffect(() => { load(); }, []);
+    useEffect(() => {
+        load();
+    }, []);
 
     if (noMenu) return null;
 
@@ -82,7 +59,7 @@ export function MealSuggestions({
                     </span>
                 </div>
                 {!isPending && (
-                    <button onClick={() => load(true)} className="text-(--text-muted) hover:text-(--text-primary) transition-colors">
+                    <button onClick={load} className="text-(--text-muted) hover:text-(--text-primary) transition-colors">
                         <RefreshCw size={13} />
                     </button>
                 )}

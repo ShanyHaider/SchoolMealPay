@@ -1,6 +1,7 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { getChildrenByParent } from "@/db/queries/Students";
+import { getChildActivitySummaries } from "@/db/queries/ChildActivity";
 import Link from "next/link";
 import { UserPlus, Users } from "lucide-react";
 import { ChildCard } from "./_components/ChildCard";
@@ -14,6 +15,13 @@ export default async function ChildrenPage() {
   if (!dbUser) redirect("/sign-in");
 
   const children = await getChildrenByParent(dbUser.id);
+
+  // Fetch activity in parallel — non-blocking, cards gracefully handle undefined
+  const studentIds = children.map((c) => c.student.id);
+  const activitySummaries = await getChildActivitySummaries(studentIds);
+  const activityByStudent = Object.fromEntries(
+    activitySummaries.map((a) => [a.studentId, a]),
+  );
 
   return (
     <div className="w-full max-w-6xl mx-auto">
@@ -39,7 +47,7 @@ export default async function ChildrenPage() {
       </FadeIn>
 
       {/* Children list */}
-      {children.length === 0 ?
+      {children.length === 0 ? (
         <FadeIn delay={0.1}>
           <div className="flex flex-col items-center justify-center py-24 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-3xl text-center px-6">
             <div className="w-20 h-20 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center mb-6">
@@ -59,14 +67,18 @@ export default async function ChildrenPage() {
             </Link>
           </div>
         </FadeIn>
-        : <div className="grid grid-cols-1 gap-6">
+      ) : (
+        <div className="grid grid-cols-1 gap-6">
           {children.map((link, index) => (
             <FadeIn key={link.id} delay={0.1 * (index + 1)}>
-              <ChildCard link={link} />
+              <ChildCard
+                link={link}
+                activity={activityByStudent[link.student.id]}
+              />
             </FadeIn>
           ))}
         </div>
-      }
+      )}
     </div>
   );
 }

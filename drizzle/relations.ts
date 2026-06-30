@@ -30,6 +30,10 @@ import {
   parentWalletsTable,
   auditLogsTable,
   pushSubscriptionsTable,
+  systemConfigTable,
+  demoRequestsTable,
+  contactSubmissionsTable,
+  newsletterSubscribersTable,
 } from "./schema";
 import { staffInvitationsTable } from "./schema/staffInvitationTable";
 
@@ -65,6 +69,10 @@ export const usersRelations = relations(usersTable, ({ many, one }) => ({
   }),
 
   pushSubscriptions: many(pushSubscriptionsTable),
+
+  staffInvitations: many(staffInvitationsTable, { relationName: "invitedByUser" }),
+
+  systemConfigUpdates: many(systemConfigTable),
 }));
 
 // ─── Students ──────────────────────────────────────────────────
@@ -134,6 +142,8 @@ export const parentChildLinksRelations = relations(
 // ─── Canteens ──────────────────────────────────────────────────
 export const canteensRelations = relations(canteensTable, ({ many }) => ({
   staffAssignments: many(canteenStaffAssignmentsTable),
+  staffInvitations: many(staffInvitationsTable),
+  systemConfigs: many(systemConfigTable),
   menuItems: many(menuItemsTable),
   dailyMenus: many(dailyMenusTable),
   inventoryItems: many(inventoryItemsTable),
@@ -464,6 +474,52 @@ export const staffInvitationsRelations = relations(
     invitedBy: one(usersTable, {
       fields: [staffInvitationsTable.invitedBy],
       references: [usersTable.id],
+      relationName: "invitedByUser",
     }),
   }),
 );
+
+export const pushSubscriptionsRelations = relations(
+  pushSubscriptionsTable,
+  ({ one }) => ({
+    user: one(usersTable, {
+      fields: [pushSubscriptionsTable.userId],
+      references: [usersTable.id],
+    }),
+  }),
+);
+
+export const systemConfigRelations = relations(
+  systemConfigTable,
+  ({ one }) => ({
+    canteen: one(canteensTable, {
+      fields: [systemConfigTable.canteenId],
+      references: [canteensTable.id],
+    }),
+    updatedByUser: one(usersTable, {
+      fields: [systemConfigTable.updatedBy],
+      references: [usersTable.id],
+    }),
+  }),
+);
+
+export const newsletterSubscribersRelations = relations(newsletterSubscribersTable, ({ one }) => ({
+  convertedUser: one(usersTable, {
+    fields: [newsletterSubscribersTable.convertedUserId],
+    references: [usersTable.id],
+  }),
+}));
+
+export const demoRequestsRelations = relations(demoRequestsTable, ({ one }) => ({
+  convertedUser: one(usersTable, {
+    fields: [demoRequestsTable.convertedUserId],
+    references: [usersTable.id],
+  }),
+}));
+
+export const contactSubmissionsRelations = relations(contactSubmissionsTable, ({ one }) => ({
+  convertedUser: one(usersTable, {  // was wrongly set to contactSubmissionsTable
+    fields: [contactSubmissionsTable.convertedUserId],
+    references: [usersTable.id],
+  }),
+}));

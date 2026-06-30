@@ -9,7 +9,7 @@ import {
 } from "@/db/actions/admin/Staff";
 import { useToast } from "@/components/useToast";
 import { StaffMember } from "@/app/(dashboard)/school-admin/staff/_components/StaffTable";
-import { assignStaffToCanteen, removeStaffAssignment } from "@/db/actions/admin/Canteen";
+import { assignStaffToCanteen, removeStaffAssignment } from "@/db/actions/admin/Staff";
 
 export function useStaffActions(adminId: string) {
     const { toast } = useToast();

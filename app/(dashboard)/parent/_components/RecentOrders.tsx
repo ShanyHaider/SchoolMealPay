@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { ShoppingBag, ArrowRight } from "lucide-react";
+import { formatPKR } from "@/lib/currency";
 
 type Order = {
   id: string;
@@ -57,7 +58,7 @@ function OrderRow({ order }: { order: Order }) {
   return (
     <Link
       href={`/parent/orders/${order.id}`}
-      className="flex items-center justify-between p-3.5 rounded-xl hover:bg-[var(--bg-secondary)] transition-colors gap-4 group"
+      className="flex items-center justify-between p-3.5 rounded-xl hover:bg-(--bg-secondary) transition-colors gap-4 group"
     >
       <div className="flex items-center gap-3.5 min-w-0 flex-1">
         <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 text-zinc-500 dark:text-zinc-400 flex items-center justify-center shrink-0 border border-zinc-200/40 dark:border-zinc-700/40">
@@ -79,7 +80,7 @@ function OrderRow({ order }: { order: Order }) {
           {config.label}
         </span>
         <span className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
-          PKR {Math.round(parseFloat(order.totalAmount))}
+          {formatPKR(order.totalAmount)}
         </span>
       </div>
     </Link>
@@ -92,7 +93,7 @@ interface RecentOrdersProps {
 
 export function RecentOrders({ orders }: RecentOrdersProps) {
   return (
-    <section className="w-full bg-[var(--bg-card)] border border-[var(--border-card)] rounded-2xl p-6 shadow-sm">
+    <section className="w-full bg-(--bg-card) border border-(--border-card) rounded-2xl p-6 shadow-sm">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-50">
           Recent orders
@@ -118,7 +119,7 @@ export function RecentOrders({ orders }: RecentOrdersProps) {
             Browse menu
           </Link>
         </div>
-        : <div className="flex flex-col gap-0.5">
+      : <div className="flex flex-col gap-0.5">
           {orders.map((order) => (
             <OrderRow key={order.id} order={order} />
           ))}

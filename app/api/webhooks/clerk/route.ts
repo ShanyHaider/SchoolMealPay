@@ -6,6 +6,9 @@ import {
   parentWalletsTable,
   canteenStaffAssignmentsTable,
   staffInvitationsTable,
+  newsletterSubscribersTable,
+  demoRequestsTable,
+  contactSubmissionsTable,
 } from "@/drizzle/schema";
 import { upsertUser, deleteUser } from "@/features/users/db";
 import { eq, and, inArray } from "drizzle-orm";
@@ -111,7 +114,24 @@ export async function POST(request: NextRequest) {
         // redirect → / → /dashboard → loop.
         bustUserCache(clerkData.id, dbUserId);
 
-        break;
+        if (event.type === "user.created" && dbUserId && email) {
+          await Promise.all([
+            db
+              .update(newsletterSubscribersTable)
+              .set({ convertedUserId: dbUserId })
+              .where(eq(newsletterSubscribersTable.email, email)),
+            db
+              .update(demoRequestsTable)
+              .set({ convertedUserId: dbUserId })
+              .where(eq(demoRequestsTable.email, email)),
+            db
+              .update(contactSubmissionsTable)
+              .set({ convertedUserId: dbUserId })
+              .where(eq(contactSubmissionsTable.email, email)),
+          ]);
+
+          break;
+        }
       }
 
       case "user.deleted": {

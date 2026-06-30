@@ -1,8 +1,8 @@
 "use client";
 
 import { Package, AlertTriangle, TrendingDown, CheckCircle, X } from "lucide-react";
-import type { FilterType, InventoryItem } from "./types";
-import { cardStyle } from "./types";
+import type { FilterType, InventoryItem } from "../../../../../types/inventoryTypes";
+import { cardStyle } from "../../../../../types/inventoryTypes";
 
 interface InventoryStatCardsProps {
     inventory: InventoryItem[];

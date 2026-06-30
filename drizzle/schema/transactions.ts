@@ -62,8 +62,7 @@ export const transactionsTable = pgTable(
     id,
     orderId: uuid("order_id").references(() => ordersTable.id),
     parentId: uuid("parent_id")
-      .notNull()
-      .references(() => usersTable.id),
+      .references(() => usersTable.id, { onDelete: "set null" }),
     transactionRef: varchar("transaction_ref").unique(),
     amount: decimal({ precision: 10, scale: 2 }).notNull(),
     paymentMethod: paymentMethodEnum("payment_method").notNull(),

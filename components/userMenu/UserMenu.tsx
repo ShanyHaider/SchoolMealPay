@@ -79,6 +79,12 @@ export function UserMenu({ isLoaded, billingTab, notificationsTab }: UserMenuPro
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (pathname.includes("/billing")) {
+      setIsSettingsOpen(false);
+    }
+  }, [pathname]);
+
   const openSettings = (tab: SettingsTab = "profile") => {
     setActiveTab(tab);
     setIsOpen(false);

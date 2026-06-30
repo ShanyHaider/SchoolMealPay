@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { db } from "@/drizzle/db";
 import { eq, sql } from "drizzle-orm";
+import { createElement } from "react";
 import {
   stripeWebhookEventsTable,
   parentProSubscriptionsTable,
@@ -11,6 +12,7 @@ import {
   schoolSubscriptionTable,
   transactionsTable,
   parentWalletsTable,
+  usersTable,
 } from "@/drizzle/schema";
 import {
   revalidateParentProSubscriptionCache,
@@ -19,11 +21,54 @@ import {
   revalidateWallet,
   revalidateTransactionCache,
 } from "@/lib/cacheRevalidation";
+import { sendEmail } from "@/lib/mailer";
+import { SubscriptionConfirmationEmail } from "@/emails/SubscriptionConfirmationEmail";
+import { TrialEndingEmail } from "@/emails/TrialEndingEmail";
+import { SubscriptionCancelledEmail } from "@/emails/SubscriptionCancelledEmail";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Stripe sends the same event multiple times on network failure.
-// We log every processed event ID in stripeWebhookEventsTable and skip
-// duplicates — idempotency is non-negotiable for billing.
+// ─── Email helper ─────────────────────────────────────────────────────────────
+// Looks up the user by DB id or clerkId, returns name + email.
+// Never throws — email failure must not break billing.
+
+async function getUserDetails(
+  where: { parentId?: string; schoolAdminId?: string },
+): Promise<{ name: string; email: string } | null> {
+  try {
+    const userId = where.parentId ?? where.schoolAdminId;
+    if (!userId) return null;
+    const user = await db.query.usersTable.findFirst({
+      where: eq(usersTable.id, userId),
+      columns: { name: true, email: true },
+    });
+    return user ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function formatDate(date: Date) {
+  return date.toLocaleDateString("en-US", {
+    month: "long", day: "numeric", year: "numeric",
+  });
+}
+
+function getPlanName(sub: Stripe.Subscription) {
+  const priceId = sub.items?.data?.[0]?.price?.id ?? "";
+  if (sub.metadata?.parentId) return "Parent Pro";
+  if (sub.metadata?.schoolAdminId) return "Premium School";
+  return "Premium";
+}
+
+function getCycle(sub: Stripe.Subscription): "monthly" | "annual" {
+  const interval = sub.items?.data?.[0]?.price?.recurring?.interval;
+  return interval === "year" ? "annual" : "monthly";
+}
+
+function getAmount(sub: Stripe.Subscription) {
+  const cents = sub.items?.data?.[0]?.price?.unit_amount ?? 0;
+  return (cents / 100).toLocaleString();
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
@@ -34,7 +79,6 @@ export async function POST(request: NextRequest) {
     return new Response("Missing stripe-signature header", { status: 400 });
   }
 
-  // ── 1. Verify the webhook came from Stripe ──────────────────────────────
   let event: Stripe.Event;
   try {
     event = stripe.webhooks.constructEvent(
@@ -43,47 +87,33 @@ export async function POST(request: NextRequest) {
       process.env.STRIPE_WEBHOOK_SECRET!,
     );
   } catch (err: any) {
-    console.error(
-      "[Stripe Webhook] Signature verification failed:",
-      err.message,
-    );
+    console.error("[Stripe Webhook] Signature verification failed:", err.message);
     return new Response(`Webhook Error: ${err.message}`, { status: 400 });
   }
 
-  // ── 2. Idempotency check ────────────────────────────────────────────────
-  // Stripe retries on any non-2xx response. Check before processing.
   try {
     const alreadyProcessed = await db.query.stripeWebhookEventsTable.findFirst({
       where: eq(stripeWebhookEventsTable.id, event.id),
     });
-
-    if (alreadyProcessed) {
-      return new Response("Already processed", { status: 200 });
-    }
+    if (alreadyProcessed) return new Response("Already processed", { status: 200 });
   } catch (err) {
     console.error("[Stripe Webhook] Idempotency check failed:", err);
     return new Response("Database error", { status: 500 });
   }
 
-  // ── 3. Handle events ────────────────────────────────────────────────────
   try {
     switch (event.type) {
-      // ── Wallet top-up completed ───────────────────────────────────────
+
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         const meta = session.metadata ?? {};
-
         if (meta.transactionType === "wallet_topup") {
           await handleWalletTopup(session, meta);
         }
-        // Subscriptions activate via customer.subscription.created — handled below.
         break;
       }
 
-      // ── Subscription created (first checkout) ─────────────────────────
-      // Routes to parent Pro or school handler based on metadata.
       case "customer.subscription.created":
-      // ── Subscription updated (renewal, status change, plan change) ────
       case "customer.subscription.updated": {
         const sub = event.data.object as Stripe.Subscription;
 
@@ -92,18 +122,74 @@ export async function POST(request: NextRequest) {
         } else if (sub.metadata?.schoolAdminId) {
           await upsertSchoolSubscription(sub);
         } else {
-          console.warn(
-            "[Stripe Webhook] subscription missing known metadata — skipping:",
-            sub.id,
+          console.warn("[Stripe Webhook] subscription missing known metadata — skipping:", sub.id);
+          break;
+        }
+
+        // ── Send confirmation email on first creation only ────────────────
+        if (event.type === "customer.subscription.created") {
+          const user = await getUserDetails({
+            parentId: sub.metadata?.parentId,
+            schoolAdminId: sub.metadata?.schoolAdminId,
+          });
+
+          if (user) {
+            const item = sub.items?.data?.[0];
+            const periodEnd = item?.current_period_end
+              ? new Date(item.current_period_end * 1000)
+              : new Date();
+            const isTrial = sub.status === "trialing";
+            const trialEnd = sub.trial_end ? new Date(sub.trial_end * 1000) : null;
+
+            await sendEmail({
+              to: user.email,
+              subject: `Subscription confirmed — SchoolMealPay`,
+              template: createElement(SubscriptionConfirmationEmail, {
+                name: user.name,
+                planName: getPlanName(sub),
+                cycle: getCycle(sub),
+                amount: getAmount(sub),
+                nextBillingDate: formatDate(periodEnd),
+                isTrial,
+                trialEndsAt: trialEnd ? formatDate(trialEnd) : undefined,
+              }),
+            }).catch((err) =>
+              console.error("[Stripe Webhook] Failed to send subscription confirmation email:", err)
+            );
+          }
+        }
+        break;
+      }
+
+      // ── Trial ending in 3 days — Stripe fires this automatically ─────────
+      case "customer.subscription.trial_will_end": {
+        const sub = event.data.object as Stripe.Subscription;
+
+        const user = await getUserDetails({
+          parentId: sub.metadata?.parentId,
+          schoolAdminId: sub.metadata?.schoolAdminId,
+        });
+
+        if (user) {
+          const trialEnd = sub.trial_end ? new Date(sub.trial_end * 1000) : null;
+
+          await sendEmail({
+            to: user.email,
+            subject: `Your free trial ends soon — SchoolMealPay`,
+            template: createElement(TrialEndingEmail, {
+              name: user.name,
+              planName: getPlanName(sub),
+              trialEndsAt: trialEnd ? formatDate(trialEnd) : "soon",
+              amount: getAmount(sub),
+              cycle: getCycle(sub),
+            }),
+          }).catch((err) =>
+            console.error("[Stripe Webhook] Failed to send trial ending email:", err)
           );
         }
         break;
       }
 
-      // ── Subscription cancelled ────────────────────────────────────────
-      // Stripe fires "deleted" for both user-initiated cancels and hard
-      // expiries. We store "cancelled" + record cancelledAt timestamp.
-      // "expired" stays reserved for time-based lapse in our own logic.
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
 
@@ -111,32 +197,46 @@ export async function POST(request: NextRequest) {
           await db
             .update(parentProSubscriptionsTable)
             .set({ status: "cancelled", cancelledAt: new Date() })
-            .where(
-              eq(parentProSubscriptionsTable.parentId, sub.metadata.parentId),
-            );
+            .where(eq(parentProSubscriptionsTable.parentId, sub.metadata.parentId));
           revalidateParentProSubscriptionCache(sub.metadata.parentId);
         } else if (sub.metadata?.schoolAdminId) {
           await db
             .update(schoolSubscriptionTable)
-            .set({
-              status: "cancelled",
-              cancelledAt: new Date(),
-              updatedAt: new Date(),
-            })
-            .where(
-              eq(schoolSubscriptionTable.stripeSubscriptionId, sub.id),
-            );
+            .set({ status: "cancelled", cancelledAt: new Date(), updatedAt: new Date() })
+            .where(eq(schoolSubscriptionTable.stripeSubscriptionId, sub.id));
           revalidateSchoolSubscriptionCache();
         } else {
-          console.warn(
-            "[Stripe Webhook] subscription.deleted missing known metadata — skipping:",
-            sub.id,
+          console.warn("[Stripe Webhook] subscription.deleted missing known metadata — skipping:", sub.id);
+          break;
+        }
+
+        // ── Send cancellation email ────────────────────────────────────────
+        const user = await getUserDetails({
+          parentId: sub.metadata?.parentId,
+          schoolAdminId: sub.metadata?.schoolAdminId,
+        });
+
+        if (user) {
+          const item = sub.items?.data?.[0];
+          const accessUntil = item?.current_period_end
+            ? formatDate(new Date(item.current_period_end * 1000))
+            : "the end of your billing period";
+
+          await sendEmail({
+            to: user.email,
+            subject: `Subscription cancelled — SchoolMealPay`,
+            template: createElement(SubscriptionCancelledEmail, {
+              name: user.name,
+              planName: getPlanName(sub),
+              accessUntil,
+            }),
+          }).catch((err) =>
+            console.error("[Stripe Webhook] Failed to send cancellation email:", err)
           );
         }
         break;
       }
 
-      // ── Invoice paid — record billing history ─────────────────────────
       case "invoice.payment_succeeded":
       case "invoice.paid": {
         const invoice = event.data.object as Stripe.Invoice;
@@ -144,39 +244,28 @@ export async function POST(request: NextRequest) {
         break;
       }
 
-      // ── Invoice failed — mark past_due ────────────────────────────────
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice;
 
-        // Stripe Basil API 2025: subscription reference lives under invoice.parent
         const subId =
-          invoice.parent?.type === "subscription_details" ?
-            (invoice.parent.subscription_details?.subscription as string | null)
+          invoice.parent?.type === "subscription_details"
+            ? (invoice.parent.subscription_details?.subscription as string | null)
             : null;
 
         if (subId) {
-          // Check parent Pro first
-          const parentRow = await db.query.parentProSubscriptionsTable.findFirst(
-            {
-              where: eq(
-                parentProSubscriptionsTable.stripeSubscriptionId,
-                subId,
-              ),
-            },
-          );
+          const parentRow = await db.query.parentProSubscriptionsTable.findFirst({
+            where: eq(parentProSubscriptionsTable.stripeSubscriptionId, subId),
+          });
 
           if (parentRow) {
             await db
               .update(parentProSubscriptionsTable)
               .set({ status: "past_due" })
-              .where(
-                eq(parentProSubscriptionsTable.stripeSubscriptionId, subId),
-              );
+              .where(eq(parentProSubscriptionsTable.stripeSubscriptionId, subId));
             revalidateParentProSubscriptionCache(parentRow.parentId);
             break;
           }
 
-          // Check school subscription
           const schoolRow = await db.query.schoolSubscriptionTable.findFirst({
             where: eq(schoolSubscriptionTable.stripeSubscriptionId, subId),
           });
@@ -193,9 +282,9 @@ export async function POST(request: NextRequest) {
       }
 
       default:
+        break;
     }
 
-    // ── 4. Mark event as processed ────────────────────────────────────────
     await db.insert(stripeWebhookEventsTable).values({
       id: event.id,
       type: event.type,
@@ -205,15 +294,11 @@ export async function POST(request: NextRequest) {
     return new Response("OK", { status: 200 });
   } catch (err) {
     console.error(`[Stripe Webhook] Handler failed for ${event.type}:`, err);
-    // Return 500 so Stripe retries. Idempotency check prevents double-processing
-    // if the handler succeeded but the processedAt insert failed.
     return new Response("Internal error", { status: 500 });
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Helpers (unchanged) ─────────────────────────────────────────────────────
 
 async function handleWalletTopup(
   session: Stripe.Checkout.Session,
@@ -223,8 +308,6 @@ async function handleWalletTopup(
   const amountStr =
     session.amount_total ? (session.amount_total / 100).toFixed(2) : "0.00";
 
-  // Atomic: log transaction + increment wallet balance in one DB transaction.
-  // sql`... + amount::numeric` is concurrency-safe — avoids read-modify-write race.
   const txRecord = await db.transaction(async (tx) => {
     const [inserted] = await tx
       .insert(transactionsTable)
@@ -255,43 +338,28 @@ async function handleWalletTopup(
   revalidateWallet(parentId);
 }
 
-// ── Parent Pro subscription upsert ────────────────────────────────────────────
-// Handles both created and updated events for parent subscriptions.
-// Uses onConflictDoUpdate so it's safe to call for either event type.
 async function upsertParentProSubscription(sub: Stripe.Subscription) {
   const parentId = sub.metadata?.parentId;
   if (!parentId) {
-    console.warn(
-      "[Stripe Webhook] subscription missing parentId metadata:",
-      sub.id,
-    );
+    console.warn("[Stripe Webhook] subscription missing parentId metadata:", sub.id);
     return;
   }
 
-  // NOTE — Stripe Basil API (2025-03-31) breaking change:
-  // current_period_start and current_period_end were removed from the
-  // top-level Subscription object and moved to each SubscriptionItem.
-  // See: https://docs.stripe.com/changelog/basil/2025-03-31/deprecate-subscription-current-period-start-and-end
   const item = sub.items?.data?.[0];
   if (!item?.current_period_start || !item?.current_period_end) {
-    console.warn(
-      "[Stripe Webhook] Missing period dates on subscription item:",
-      sub.id,
-    );
+    console.warn("[Stripe Webhook] Missing period dates on subscription item:", sub.id);
     return;
   }
 
   const values = {
     parentId,
-    status:
-      sub.status as (typeof parentProSubscriptionsTable.$inferInsert)["status"],
+    status: sub.status as (typeof parentProSubscriptionsTable.$inferInsert)["status"],
     stripeCustomerId: sub.customer as string,
     stripeSubscriptionId: sub.id,
-    currentPeriodStart: new Date(item.current_period_start * 1000), // ✅ from item
-    currentPeriodEnd: new Date(item.current_period_end * 1000), // ✅ from item
+    currentPeriodStart: new Date(item.current_period_start * 1000),
+    currentPeriodEnd: new Date(item.current_period_end * 1000),
     trialStartedAt: sub.trial_start ? new Date(sub.trial_start * 1000) : null,
     trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000) : null,
-    // trialUsed = true once Stripe sets a trial_start, even if it has since ended
     trialUsed: sub.trial_start != null,
   };
 
@@ -314,42 +382,27 @@ async function upsertParentProSubscription(sub: Stripe.Subscription) {
   revalidateParentProSubscriptionCache(parentId);
 }
 
-// ── School subscription upsert ────────────────────────────────────────────────
-// Single-row table — always updates the one seeded row by its primary key.
-// Never inserts; if there's no row the seed script hasn't been run yet.
 async function upsertSchoolSubscription(sub: Stripe.Subscription) {
-  // Stripe Basil API 2025: period dates live on the subscription item, not the
-  // top-level subscription object.
   const item = sub.items?.data?.[0];
   if (!item?.current_period_start || !item?.current_period_end) {
-    console.warn(
-      "[Stripe Webhook] Missing period dates on school subscription item:",
-      sub.id,
-    );
+    console.warn("[Stripe Webhook] Missing period dates on school subscription item:", sub.id);
     return;
   }
 
-  // Single-row table — find the one existing row (seeded at setup time).
-  // We match by stripeSubscriptionId first (handles renewals / updates),
-  // then fall back to the first row (handles the very first creation event
-  // before we've written the Stripe IDs into the DB).
   const existing =
     (await db.query.schoolSubscriptionTable.findFirst({
       where: eq(schoolSubscriptionTable.stripeSubscriptionId, sub.id),
     })) ?? (await db.query.schoolSubscriptionTable.findFirst());
 
   if (!existing) {
-    console.warn(
-      "[Stripe Webhook] No school subscription row found — run the seed script.",
-    );
+    console.warn("[Stripe Webhook] No school subscription row found — run the seed script.");
     return;
   }
 
   await db
     .update(schoolSubscriptionTable)
     .set({
-      status:
-        sub.status as (typeof schoolSubscriptionTable.$inferInsert)["status"],
+      status: sub.status as (typeof schoolSubscriptionTable.$inferInsert)["status"],
       tier: "premium_school",
       stripeCustomerId: sub.customer as string,
       stripeSubscriptionId: sub.id,
@@ -366,28 +419,27 @@ async function upsertSchoolSubscription(sub: Stripe.Subscription) {
 }
 
 async function handleInvoicePaid(invoice: Stripe.Invoice) {
-  // Stripe Basil API 2025: subscription reference lives under invoice.parent
   const subId =
-    invoice.parent?.type === "subscription_details" ?
-      (invoice.parent.subscription_details?.subscription as string | null)
+    invoice.parent?.type === "subscription_details"
+      ? (invoice.parent.subscription_details?.subscription as string | null)
       : null;
 
   if (!subId) return;
 
+  // ✅ Fetch the live subscription to get the correct current_period_end
+  const stripeSub = await stripe.subscriptions.retrieve(subId);
+  const item = stripeSub.items?.data?.[0];
+
+  const periodStart = item?.current_period_start
+    ? new Date(item.current_period_start * 1000)
+    : null;
+  const periodEnd = item?.current_period_end
+    ? new Date(item.current_period_end * 1000)
+    : null;
+
   const amountStr =
     invoice.amount_paid ? (invoice.amount_paid / 100).toFixed(2) : "0.00";
 
-  const periodStart =
-    invoice.period_start ? new Date(invoice.period_start * 1000) : null;
-  const periodEnd =
-    invoice.period_end ? new Date(invoice.period_end * 1000) : null;
-
-  // ── Parent Pro invoice ──────────────────────────────────────────────────
-  // subscriptionInvoicesTable.subscriptionId FKs to schoolSubscriptionTable only.
-  // Parent Pro billing history is represented by the transaction record written
-  // at checkout — there is no separate invoice table for parent subscriptions.
-  // On renewal we just update the subscription row's period so the UI shows
-  // the accurate "active until" date.
   const parentProRow = await db.query.parentProSubscriptionsTable.findFirst({
     where: eq(parentProSubscriptionsTable.stripeSubscriptionId, subId),
   });
@@ -406,24 +458,16 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     return;
   }
 
-  // ── School subscription invoice ─────────────────────────────────────────
   const schoolSub =
     (await db.query.schoolSubscriptionTable.findFirst({
       where: eq(schoolSubscriptionTable.stripeSubscriptionId, subId),
     })) ?? (await db.query.schoolSubscriptionTable.findFirst());
 
   if (!schoolSub) {
-    // Unknown subscription — log and skip rather than writing bad FK data
-    console.warn(
-      "[Stripe Webhook] invoice.payment_succeeded: no school subscription row — run seed script",
-    );
+    console.warn("[Stripe Webhook] invoice.payment_succeeded: no school subscription row — run seed script");
     return;
   }
 
-  // Update the school subscription status to active and refresh period dates.
-  // The subscription.updated event also does this, but doing it here too ensures
-  // the billing page reflects "active" immediately after the invoice is paid,
-  // even if the subscription event arrives out of order.
   await db
     .update(schoolSubscriptionTable)
     .set({
@@ -436,7 +480,6 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     })
     .where(eq(schoolSubscriptionTable.id, schoolSub.id));
 
-  // Avoid duplicate invoice rows on retry — stripeInvoiceId has a unique constraint
   const existingInvoice = await db.query.subscriptionInvoicesTable.findFirst({
     where: eq(subscriptionInvoicesTable.stripeInvoiceId, invoice.id),
   });
@@ -451,6 +494,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       billingPeriodStart: periodStart,
       billingPeriodEnd: periodEnd,
       paidAt: new Date(),
+      hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
     });
   }
 

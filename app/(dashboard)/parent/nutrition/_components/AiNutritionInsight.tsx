@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { Sparkles, ShieldAlert, RefreshCw, ArrowRightLeft } from "lucide-react";
-import { generateNutritionSummary } from "@/db/actions/Nutrition";
-import type { NutritionTargets } from "@/db/actions/Nutrition";
-import { NutritionAverages } from "@/types/nutritionTypes";
+import { generateNutritionSummary } from "@/db/actions/ai/nutrition";
+import type { NutritionTargets, NutritionSummary } from "@/db/actions/ai/nutrition";
+import type { NutritionAverages } from "@/types/nutritionTypes";
 import { MealSuggestions } from "./MealSuggestions";
 
 const VERDICT_CONFIG = {
@@ -14,15 +14,16 @@ const VERDICT_CONFIG = {
 } as const;
 
 interface Props {
+    studentId: string;
     childName: string;
     avg: NutritionAverages;
     targets: NutritionTargets;
     topMeals: { name: string; healthStatus: string }[];
-    menuItems: { id: string; name: string }[]; // today's canteen items passed from server
+    menuItems: { id: string; name: string }[];
 }
 
-export function AiNutritionInsight({ childName, avg, targets, topMeals, menuItems }: Props) {
-    const [result, setResult] = useState<Awaited<ReturnType<typeof generateNutritionSummary>>>(null);
+export function AiNutritionInsight({ studentId, childName, avg, targets, topMeals, menuItems }: Props) {
+    const [result, setResult] = useState<NutritionSummary | null>(null);
     const [isPending, startTransition] = useTransition();
 
     function load() {
@@ -104,6 +105,7 @@ export function AiNutritionInsight({ childName, avg, targets, topMeals, menuItem
 
                     {(result.verdict === "Needs Improvement" || result.verdict === "Concerning") && (
                         <MealSuggestions
+                            studentId={studentId}
                             childName={childName}
                             avg={avg}
                             targets={targets}

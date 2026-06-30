@@ -12,34 +12,34 @@ import { getUserFromDb } from "@/features/users/queries";
 import { connection } from "next/server";
 
 export async function ParentLayoutContent({
-    children,
+  children,
 }: {
-    children: React.ReactNode;
+  children: React.ReactNode;
 }) {
-    await connection();
-    const { userId } = await auth();
-    if (!userId) redirect("/sign-in");
+  await connection();
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
 
-    const dbUser = await getUserFromDb(userId);
-    if (!dbUser || dbUser.role !== "parent") redirect("/dashboard");
+  const dbUser = await getUserFromDb(userId);
+  if (!dbUser || dbUser.role !== "parent") redirect("/dashboard");
 
-    // Fetch subscription — null if no row yet (treated as free)
-    const sub = await getParentProSubscription(dbUser.id);
-    const subscriptionStatus = sub?.status ?? null;
+  // Fetch subscription — null if no row yet (treated as free)
+  const sub = await getParentProSubscription(dbUser.id);
+  const subscriptionStatus = sub?.status ?? null;
 
-    return (
-        <div className="flex min-h-screen w-full bg-[var(--bg-secondary)] text-[var(--text-primary)] antialiased">
-            <ParentSidebar
-                user={dbUser}
-                subscriptionStatus={subscriptionStatus}
-                notificationsTab={<NotificationsTab />}
-                billingTab={<BillingTabServer />}
-            />
+  return (
+    <div className="flex min-h-screen w-full bg-(--bg-secondary) text-(--text-primary) antialiased">
+      <ParentSidebar
+        user={dbUser}
+        subscriptionStatus={subscriptionStatus}
+        notificationsTab={<NotificationsTab />}
+        billingTab={<BillingTabServer />}
+      />
 
-            <div className="flex flex-col flex-1 min-w-0">
-                <ParentTopbar user={dbUser} />
-                <main className="flex-1 p-6 lg:p-8">{children}</main>
-            </div>
-        </div>
-    );
+      <div className="flex flex-col flex-1 min-w-0">
+        <ParentTopbar user={dbUser} />
+        <main className="flex-1 p-6 lg:p-8">{children}</main>
+      </div>
+    </div>
+  );
 }

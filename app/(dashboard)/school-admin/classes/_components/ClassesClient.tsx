@@ -4,7 +4,11 @@ import { useState, useTransition, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createClass, deleteClass, updateClass } from "@/db/actions/admin/Classes";
+import {
+  createClass,
+  deleteClass,
+  updateClass,
+} from "@/db/actions/admin/Classes";
 import {
   createClassSchema,
   updateClassSchema,
@@ -85,9 +89,14 @@ export function ClassesClient({ classes }: { classes: ClassItem[] }) {
         await createClass(data);
         resetAddForm();
         setShowAdd(false);
-        toast(`Grade ${data.grade} — Section ${data.section} was added.`, "success");
+        toast(
+          `Grade ${data.grade} — Section ${data.section} was added.`,
+          "success",
+        );
       } catch (err: any) {
-        setServerError(err?.message ?? "An error occurred while creating the class.");
+        setServerError(
+          err?.message ?? "An error occurred while creating the class.",
+        );
       }
     });
   };
@@ -100,9 +109,14 @@ export function ClassesClient({ classes }: { classes: ClassItem[] }) {
         await updateClass(editingClass.id, data);
         resetEditForm({ grade: data.grade, section: data.section });
         setEditingClass(null);
-        toast(`Grade ${data.grade} — Section ${data.section} was updated.`, "success");
+        toast(
+          `Grade ${data.grade} — Section ${data.section} was updated.`,
+          "success",
+        );
       } catch (err: any) {
-        setServerError(err?.message ?? "An error occurred while updating the class.");
+        setServerError(
+          err?.message ?? "An error occurred while updating the class.",
+        );
       }
     });
   };
@@ -152,7 +166,9 @@ export function ClassesClient({ classes }: { classes: ClassItem[] }) {
       const sectionIdx = headers.indexOf("section");
 
       if (gradeIdx === -1 || sectionIdx === -1) {
-        setServerError("CSV file must contain columns labeled 'grade' and 'section'.");
+        setServerError(
+          "CSV file must contain columns labeled 'grade' and 'section'.",
+        );
         return;
       }
 
@@ -178,7 +194,9 @@ export function ClassesClient({ classes }: { classes: ClassItem[] }) {
             await createClass({ grade: gradeVal, section: sectionVal });
             successfulCount++;
           } catch (err: any) {
-            compilationErrors.push(`Row ${i + 1}: ${err?.message ?? "Insertion failure"}`);
+            compilationErrors.push(
+              `Row ${i + 1}: ${err?.message ?? "Insertion failure"}`,
+            );
           }
         }
 
@@ -189,9 +207,9 @@ export function ClassesClient({ classes }: { classes: ClassItem[] }) {
         } else {
           setServerError(null);
           toast(
-            successfulCount === 1
-              ? "1 class imported successfully."
-              : `${successfulCount} classes imported successfully.`,
+            successfulCount === 1 ?
+              "1 class imported successfully."
+            : `${successfulCount} classes imported successfully.`,
             "success",
           );
         }
@@ -225,14 +243,15 @@ export function ClassesClient({ classes }: { classes: ClassItem[] }) {
           />
           <label
             htmlFor="class-csv-file"
-            className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium cursor-pointer transition-all hover:bg-[var(--bg-secondary)]"
-            style={{ borderColor: "var(--border-input)", color: "var(--text-secondary)" }}
+            className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium cursor-pointer transition-all hover:bg-(--bg-secondary)"
+            style={{
+              borderColor: "var(--border-input)",
+              color: "var(--text-secondary)",
+            }}
           >
-            {isCsvPending ? (
+            {isCsvPending ?
               <Loader2 size={14} className="animate-spin" />
-            ) : (
-              <Upload size={14} />
-            )}
+            : <Upload size={14} />}
             Import CSV
           </label>
 
@@ -268,16 +287,23 @@ export function ClassesClient({ classes }: { classes: ClassItem[] }) {
         )}
 
         {/* Empty state */}
-        {classes.length === 0 ? (
+        {classes.length === 0 ?
           <div
             className="py-16 text-center rounded-xl border"
-            style={{ background: "var(--bg-card)", borderColor: "var(--border-card)" }}
+            style={{
+              background: "var(--bg-card)",
+              borderColor: "var(--border-card)",
+            }}
           >
-            <GraduationCap size={32} className="mx-auto mb-3 text-[var(--text-muted)]" />
-            <p className="text-sm text-[var(--text-secondary)]">No classes added yet.</p>
+            <GraduationCap
+              size={32}
+              className="mx-auto mb-3 text-(--text-muted)"
+            />
+            <p className="text-sm text-(--text-secondary)">
+              No classes added yet.
+            </p>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {classes.map((cls) => (
               <div
                 key={cls.id}
@@ -292,7 +318,10 @@ export function ClassesClient({ classes }: { classes: ClassItem[] }) {
                   <div className="flex items-start justify-between mb-3">
                     <div
                       className="flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold"
-                      style={{ background: "rgba(139,92,246,0.12)", color: "#8b5cf6" }}
+                      style={{
+                        background: "rgba(139,92,246,0.12)",
+                        color: "#8b5cf6",
+                      }}
                     >
                       {cls.grade}
                     </div>
@@ -300,7 +329,7 @@ export function ClassesClient({ classes }: { classes: ClassItem[] }) {
                       <button
                         onClick={() => startEditing(cls)}
                         disabled={isPending}
-                        className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors cursor-pointer disabled:opacity-50"
+                        className="p-1.5 rounded-lg text-(--text-muted) hover:text-(--text-primary) hover:bg-(--bg-secondary) transition-colors cursor-pointer disabled:opacity-50"
                         title="Edit Class"
                       >
                         <Pencil size={14} />
@@ -315,24 +344,23 @@ export function ClassesClient({ classes }: { classes: ClassItem[] }) {
                       </button>
                     </div>
                   </div>
-                  <h3 className="text-base font-semibold text-[var(--text-primary)]">
+                  <h3 className="text-base font-semibold text-(--text-primary)">
                     Grade {cls.grade} — Section {cls.section}
                   </h3>
                 </div>
-                <div
-                  className="mt-4 pt-3 border-t border-[var(--border-primary)] flex items-center justify-between"
-                >
-                  <span className="text-xs text-[var(--text-muted)] font-mono uppercase tracking-wider">
+                <div className="mt-4 pt-3 border-t border-(--border-primary) flex items-center justify-between">
+                  <span className="text-xs text-(--text-muted) font-mono uppercase tracking-wider">
                     ID: {cls.id.slice(0, 8)}...
                   </span>
-                  <span className="text-xs font-medium px-2 py-0.5 rounded bg-[var(--bg-tertiary)] text-[var(--text-secondary)]">
-                    {cls.studentCount} student{cls.studentCount !== 1 ? "s" : ""}
+                  <span className="text-xs font-medium px-2 py-0.5 rounded bg-(--bg-tertiary) text-(--text-secondary)">
+                    {cls.studentCount} student
+                    {cls.studentCount !== 1 ? "s" : ""}
                   </span>
                 </div>
               </div>
             ))}
           </div>
-        )}
+        }
       </div>
 
       {/* ── Add modal ─────────────────────────────────────────────────────── */}
@@ -352,10 +380,12 @@ export function ClassesClient({ classes }: { classes: ClassItem[] }) {
                 boxShadow: "var(--shadow-card)",
               }}
             >
-              <h2 className="text-lg font-semibold text-[var(--text-primary)]">Add Class</h2>
+              <h2 className="text-lg font-semibold text-(--text-primary)">
+                Add Class
+              </h2>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-medium mb-1.5 text-[var(--text-secondary)]">
+                  <label className="block text-xs font-medium mb-1.5 text-(--text-secondary)">
                     Grade / Year Level <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -366,11 +396,13 @@ export function ClassesClient({ classes }: { classes: ClassItem[] }) {
                     autoFocus
                   />
                   {addErrors.grade && (
-                    <p className="text-xs text-[#ef4444] mt-1">{addErrors.grade.message}</p>
+                    <p className="text-xs text-[#ef4444] mt-1">
+                      {addErrors.grade.message}
+                    </p>
                   )}
                 </div>
                 <div>
-                  <label className="block text-xs font-medium mb-1.5 text-[var(--text-secondary)]">
+                  <label className="block text-xs font-medium mb-1.5 text-(--text-secondary)">
                     Section / Stream <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -380,7 +412,9 @@ export function ClassesClient({ classes }: { classes: ClassItem[] }) {
                     disabled={isPending}
                   />
                   {addErrors.section && (
-                    <p className="text-xs text-[#ef4444] mt-1">{addErrors.section.message}</p>
+                    <p className="text-xs text-[#ef4444] mt-1">
+                      {addErrors.section.message}
+                    </p>
                   )}
                 </div>
               </div>
@@ -392,14 +426,14 @@ export function ClassesClient({ classes }: { classes: ClassItem[] }) {
                     setShowAdd(false);
                   }}
                   disabled={isPending}
-                  className="flex-1 py-2 rounded-lg text-sm font-medium border border-[var(--border-input)] bg-[var(--bg-tertiary)] text-[var(--text-secondary)] cursor-pointer disabled:opacity-50"
+                  className="flex-1 py-2 rounded-lg text-sm font-medium border border-(--border-input) bg-(--bg-tertiary) text-(--text-secondary) cursor-pointer disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isPending || !canAdd}
-                  className="flex-1 py-2 rounded-lg text-sm font-medium text-[var(--accent-text)] bg-[var(--accent)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="flex-1 py-2 rounded-lg text-sm font-medium text-(--accent-text) bg-(--accent) flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   {isPending && <Loader2 size={14} className="animate-spin" />}
                   {isPending ? "Adding…" : "Add Class"}
@@ -428,17 +462,20 @@ export function ClassesClient({ classes }: { classes: ClassItem[] }) {
               }}
             >
               <div>
-                <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+                <h2 className="text-lg font-semibold text-(--text-primary)">
                   Edit Class
                 </h2>
-                <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                <p
+                  className="text-xs mt-0.5"
+                  style={{ color: "var(--text-muted)" }}
+                >
                   Grade {editingClass.grade} — Section {editingClass.section}
                 </p>
               </div>
 
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-medium mb-1.5 text-[var(--text-secondary)]">
+                  <label className="block text-xs font-medium mb-1.5 text-(--text-secondary)">
                     Grade / Year Level <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -449,11 +486,13 @@ export function ClassesClient({ classes }: { classes: ClassItem[] }) {
                     autoFocus
                   />
                   {editErrors.grade && (
-                    <p className="text-xs text-[#ef4444] mt-1">{editErrors.grade.message}</p>
+                    <p className="text-xs text-[#ef4444] mt-1">
+                      {editErrors.grade.message}
+                    </p>
                   )}
                 </div>
                 <div>
-                  <label className="block text-xs font-medium mb-1.5 text-[var(--text-secondary)]">
+                  <label className="block text-xs font-medium mb-1.5 text-(--text-secondary)">
                     Section / Stream <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -463,7 +502,9 @@ export function ClassesClient({ classes }: { classes: ClassItem[] }) {
                     disabled={isPending}
                   />
                   {editErrors.section && (
-                    <p className="text-xs text-[#ef4444] mt-1">{editErrors.section.message}</p>
+                    <p className="text-xs text-[#ef4444] mt-1">
+                      {editErrors.section.message}
+                    </p>
                   )}
                 </div>
               </div>
@@ -476,14 +517,14 @@ export function ClassesClient({ classes }: { classes: ClassItem[] }) {
                     setEditingClass(null);
                   }}
                   disabled={isPending}
-                  className="flex-1 py-2 rounded-lg text-sm font-medium border border-[var(--border-input)] bg-[var(--bg-tertiary)] text-[var(--text-secondary)] cursor-pointer disabled:opacity-50"
+                  className="flex-1 py-2 rounded-lg text-sm font-medium border border-(--border-input) bg-(--bg-tertiary) text-(--text-secondary) cursor-pointer disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isPending || !isEditDirty}
-                  className="flex-1 py-2 rounded-lg text-sm font-medium text-[var(--accent-text)] bg-[var(--accent)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 py-2 rounded-lg text-sm font-medium text-(--accent-text) bg-(--accent) flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isPending && <Loader2 size={14} className="animate-spin" />}
                   {isPending ? "Saving…" : "Save Changes"}

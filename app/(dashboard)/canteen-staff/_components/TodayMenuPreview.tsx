@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight, UtensilsCrossed } from "lucide-react";
 
@@ -45,21 +47,24 @@ export function TodayMenuPreview({ menuItems }: { menuItems: any[] }) {
         </h2>
         <Link
           href="/canteen-staff/menu"
-          className="flex items-center gap-1 text-xs font-medium transition-colors hover:text-[var(--text-primary)]"
+          className="flex items-center gap-1 text-xs font-medium transition-colors hover:text-(--text-primary)"
           style={{ color: "var(--text-muted)" }}
         >
           Full menu <ArrowRight size={12} />
         </Link>
       </div>
 
-      {menuItems.length === 0 ? (
+      {menuItems.length === 0 ?
         <div className="py-10 text-center px-5">
           <UtensilsCrossed
             size={26}
             className="mx-auto mb-3"
             style={{ color: "var(--text-muted)", opacity: 0.4 }}
           />
-          <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>
+          <p
+            className="text-sm font-medium"
+            style={{ color: "var(--text-muted)" }}
+          >
             No menu scheduled for today
           </p>
           <p
@@ -69,8 +74,7 @@ export function TodayMenuPreview({ menuItems }: { menuItems: any[] }) {
             Admin can schedule items from the menu page.
           </p>
         </div>
-      ) : (
-        <div className="px-4 py-4 space-y-5">
+      : <div className="px-4 py-4 space-y-5">
           {orderedSlots.map((slot) => (
             <div key={slot}>
               {/* Slot divider */}
@@ -112,17 +116,16 @@ export function TodayMenuPreview({ menuItems }: { menuItems: any[] }) {
                         className="text-[11px] mt-0.5"
                         style={{ color: "var(--text-muted)" }}
                       >
-                        {dm.menuItem?.calories
-                          ? `${dm.menuItem.calories} kcal`
-                          : dm.menuItem?.category ?? ""}
+                        {dm.menuItem?.calories ?
+                          `${dm.menuItem.calories} kcal`
+                        : (dm.menuItem?.category ?? "")}
                       </p>
                     </div>
                     <span
                       className="text-[13px] font-bold shrink-0"
                       style={{ color: "#f59e0b" }}
                     >
-                      Rs.{" "}
-                      {parseFloat(dm.menuItem?.price ?? "0").toFixed(0)}
+                      Rs. {parseFloat(dm.menuItem?.price ?? "0").toFixed(0)}
                     </span>
                   </div>
                 ))}
@@ -130,7 +133,7 @@ export function TodayMenuPreview({ menuItems }: { menuItems: any[] }) {
             </div>
           ))}
         </div>
-      )}
+      }
     </div>
   );
 }

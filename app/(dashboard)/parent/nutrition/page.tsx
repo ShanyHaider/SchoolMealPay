@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getChildrenByParent } from "@/db/queries/Students";
 import { getOrdersByStudent } from "@/db/queries/Orders";
 import { getDefaultNutritionTarget } from "@/db/queries/Nutrition";
-import Link from "next/link"; // 👈 Next.js uppercase component
+import Link from "next/link";
 import {
   Info,
   Salad,
@@ -22,6 +22,9 @@ import { AiNutritionInsight } from "./_components/AiNutritionInsight";
 import type { NutritionAverages } from "@/types/nutritionTypes";
 import { getMenuItemsByCanteen } from "@/db/queries/Canteen";
 import { connection } from "next/server";
+import { db } from "@/drizzle/db";
+import { ordersTable } from "@/drizzle/schema";
+import { desc, eq } from "drizzle-orm";
 
 function computeNutritionAverages(orders: any[]): NutritionAverages | null {
   const recentOrders = orders
@@ -63,8 +66,13 @@ function computeNutritionAverages(orders: any[]): NutritionAverages | null {
   };
 }
 
-function deriveTopMeals(orders: any[]): { name: string; healthStatus: string }[] {
-  const freq: Record<string, { name: string; healthStatus: string; count: number }> = {};
+function deriveTopMeals(
+  orders: any[],
+): { name: string; healthStatus: string }[] {
+  const freq: Record<
+    string,
+    { name: string; healthStatus: string; count: number }
+  > = {};
 
   orders
     .filter((o) => o.status === "delivered")
@@ -75,11 +83,9 @@ function deriveTopMeals(orders: any[]): { name: string; healthStatus: string }[]
         if (!mi) return;
         const sugar = parseFloat(mi.sugarG ?? "0");
         const healthStatus =
-          mi.calories > 700
-            ? "High Calorie"
-            : sugar > 15
-              ? "Unhealthy"
-              : "Healthy";
+          mi.calories > 700 ? "High Calorie"
+          : sugar > 15 ? "Unhealthy"
+          : "Healthy";
         if (!freq[mi.name])
           freq[mi.name] = { name: mi.name, healthStatus, count: 0 };
         freq[mi.name].count += item.quantity;
@@ -102,7 +108,6 @@ const FALLBACK_TARGETS = {
 
 export default async function NutritionPage() {
   try {
-    await connection();
     const clerkUser = await currentUser();
     if (!clerkUser) redirect("/sign-in");
     const dbUser = await getUserFromDb(clerkUser.id);
@@ -117,17 +122,21 @@ export default async function NutritionPage() {
 
     const targets = {
       calories: dbTarget?.dailyCalories ?? FALLBACK_TARGETS.calories,
-      protein: dbTarget?.dailyProteinG
-        ? Math.round(parseFloat(dbTarget.dailyProteinG))
+      protein:
+        dbTarget?.dailyProteinG ?
+          Math.round(parseFloat(dbTarget.dailyProteinG))
         : FALLBACK_TARGETS.protein,
-      fiber: dbTarget?.dailyFiberG
-        ? Math.round(parseFloat(dbTarget.dailyFiberG))
+      fiber:
+        dbTarget?.dailyFiberG ?
+          Math.round(parseFloat(dbTarget.dailyFiberG))
         : FALLBACK_TARGETS.fiber,
-      carbs: dbTarget?.dailyCarbsG
-        ? Math.round(parseFloat(dbTarget.dailyCarbsG))
+      carbs:
+        dbTarget?.dailyCarbsG ?
+          Math.round(parseFloat(dbTarget.dailyCarbsG))
         : FALLBACK_TARGETS.carbs,
-      fat: dbTarget?.dailyFatG
-        ? Math.round(parseFloat(dbTarget.dailyFatG))
+      fat:
+        dbTarget?.dailyFatG ?
+          Math.round(parseFloat(dbTarget.dailyFatG))
         : FALLBACK_TARGETS.fat,
     };
 
@@ -135,23 +144,27 @@ export default async function NutritionPage() {
       approvedChildren.map(async (link) => {
         const orders = await getOrdersByStudent(link.student.id);
 
-        // 1. Safe, zero-any checks using standard property lookups
-        const studentCanteenId =
-          ("canteenId" in link.student && typeof link.student.canteenId === "string")
-            ? link.student.canteenId
-            : (link.student.class && "canteenId" in link.student.class && typeof link.student.class.canteenId === "string")
-              ? link.student.class.canteenId
-              : null;
+        const studentOrders = await db
+          .selectDistinct({ canteenId: ordersTable.canteenId })
+          .from(ordersTable)
+          .where(eq(ordersTable.studentId, link.student.id));
 
-        const rawMenuItems = studentCanteenId
-          ? await getMenuItemsByCanteen(studentCanteenId)
-          : [];
+        const canteenIds = studentOrders
+          .map((o) => o.canteenId)
+          .filter(Boolean) as string[];
 
-        // 2. Strongly type the parameter instead of using implicit any
-        const menuItems = rawMenuItems.map((item: typeof rawMenuItems[number]) => ({
-          id: item.id,
-          name: item.name,
-        }));
+        const allMenuItems = (
+          await Promise.all(canteenIds.map((id) => getMenuItemsByCanteen(id)))
+        ).flat();
+
+        const seen = new Set<string>();
+        const menuItems = allMenuItems
+          .filter((item) => {
+            if (seen.has(item.id)) return false;
+            seen.add(item.id);
+            return true;
+          })
+          .map((item) => ({ id: item.id, name: item.name }));
 
         return { link, orders, menuItems };
       }),
@@ -177,8 +190,8 @@ export default async function NutritionPage() {
             </h1>
           </div>
           <p className="text-(--text-secondary) max-w-2xl">
-            Monitor the average daily nutrient intake for your children based
-            on their school meal history over the last 30 orders.
+            Monitor the average daily nutrient intake for your children based on
+            their school meal history over the last 30 orders.
           </p>
         </div>
 
@@ -201,12 +214,18 @@ export default async function NutritionPage() {
           </p>
         </div>
 
-        {approvedChildren.length === 0 ? (
+        {approvedChildren.length === 0 ?
           <div className="flex flex-col items-center justify-center py-24 bg-(--bg-card) border border-dashed border-(--border-card) rounded-3xl">
             <div className="p-4 bg-(--bg-tertiary) rounded-full mb-4">
-              <Salad size={40} className="text-(--text-muted)" strokeWidth={1.5} />
+              <Salad
+                size={40}
+                className="text-(--text-muted)"
+                strokeWidth={1.5}
+              />
             </div>
-            <p className="text-(--text-secondary) font-medium">No active student profiles found.</p>
+            <p className="text-(--text-secondary) font-medium">
+              No active student profiles found.
+            </p>
             {/* Fixed standard uppercase component path here */}
             <Link
               href="/parent/children/link"
@@ -215,8 +234,7 @@ export default async function NutritionPage() {
               Link a child <ChevronRight size={16} />
             </Link>
           </div>
-        ) : (
-          <div className="space-y-10">
+        : <div className="space-y-10">
             {childOrders.map(({ link, orders, menuItems }) => {
               const avg = computeNutritionAverages(orders);
               const topMeals = deriveTopMeals(orders);
@@ -226,20 +244,29 @@ export default async function NutritionPage() {
 
               if (avg === null) {
                 return (
-                  <div key={link.student.id} className="w-full bg-(--bg-card) border border-(--border-card) rounded-3xl p-8 shadow-sm">
+                  <div
+                    key={link.student.id}
+                    className="w-full bg-(--bg-card) border border-(--border-card) rounded-3xl p-8 shadow-sm"
+                  >
                     <div className="flex flex-col items-center justify-center py-12 text-center">
                       <div className="w-12 h-12 rounded-2xl overflow-hidden border border-(--border-card) mb-4 bg-(--bg-tertiary)">
-                        {link.student.imageUrl ? (
-                          <img src={link.student.imageUrl} alt={link.student.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-lg font-bold text-(--text-secondary)">
+                        {link.student.imageUrl ?
+                          <img
+                            src={link.student.imageUrl}
+                            alt={link.student.name}
+                            className="w-full h-full object-cover"
+                          />
+                        : <div className="w-full h-full flex items-center justify-center text-lg font-bold text-(--text-secondary)">
                             {link.student.name.charAt(0).toUpperCase()}
                           </div>
-                        )}
+                        }
                       </div>
-                      <h3 className="font-bold text-lg text-(--text-primary) mb-1">{link.student.name}</h3>
+                      <h3 className="font-bold text-lg text-(--text-primary) mb-1">
+                        {link.student.name}
+                      </h3>
                       <p className="text-sm text-(--text-muted) px-8 max-w-sm">
-                        Insufficient data to generate a report. Trends appear after the first few delivered meals.
+                        Insufficient data to generate a report. Trends appear
+                        after the first few delivered meals.
                       </p>
                     </div>
                   </div>
@@ -247,23 +274,30 @@ export default async function NutritionPage() {
               }
 
               return (
-                <div key={link.student.id} className="w-full bg-(--bg-card) border border-(--border-card) rounded-3xl p-6 md:p-8 shadow-sm">
+                <div
+                  key={link.student.id}
+                  className="w-full bg-(--bg-card) border border-(--border-card) rounded-3xl p-6 md:p-8 shadow-sm"
+                >
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start relative">
-
                     {/* LEFT COLUMN - Sticky Frame */}
                     <div className="lg:col-span-5 lg:sticky lg:top-24 space-y-6 self-start">
                       <div className="flex items-center gap-4">
                         <div className="w-14 h-14 rounded-2xl overflow-hidden border border-(--border-card) shrink-0 bg-(--bg-tertiary)">
-                          {link.student.imageUrl ? (
-                            <img src={link.student.imageUrl} alt={link.student.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xl font-bold text-(--text-secondary)">
+                          {link.student.imageUrl ?
+                            <img
+                              src={link.student.imageUrl}
+                              alt={link.student.name}
+                              className="w-full h-full object-cover"
+                            />
+                          : <div className="w-full h-full flex items-center justify-center text-xl font-bold text-(--text-secondary)">
                               {link.student.name.charAt(0).toUpperCase()}
                             </div>
-                          )}
+                          }
                         </div>
                         <div>
-                          <h3 className="font-bold text-xl text-(--text-primary)">{link.student.name}</h3>
+                          <h3 className="font-bold text-xl text-(--text-primary)">
+                            {link.student.name}
+                          </h3>
                           <p className="text-xs text-(--text-muted) flex items-center gap-1 mt-0.5">
                             <Activity size={12} /> {mealCount} meals analysed
                           </p>
@@ -323,6 +357,7 @@ export default async function NutritionPage() {
                     {/* RIGHT COLUMN */}
                     <div className="lg:col-span-7 space-y-6 lg:border-l lg:border-(--border-card)/60 lg:pl-10">
                       <AiNutritionInsight
+                        studentId={link.student.id}
                         childName={link.student.name}
                         avg={avg}
                         targets={targets}
@@ -330,7 +365,6 @@ export default async function NutritionPage() {
                         menuItems={menuItems}
                       />
                     </div>
-
                   </div>
                 </div>
               );
@@ -339,11 +373,15 @@ export default async function NutritionPage() {
             {/* Bottom Global Consultation Chat Module */}
             {chatChildren.length > 0 && (
               <div className="pt-4">
-                <NutritionChat children={chatChildren} targets={targets} />
+                <NutritionChat
+                  userId={dbUser.id}
+                  children={chatChildren}
+                  targets={targets}
+                />
               </div>
             )}
           </div>
-        )}
+        }
       </div>
     );
   } catch (error) {
@@ -351,8 +389,12 @@ export default async function NutritionPage() {
     return (
       <div className="p-8 max-w-2xl mx-auto">
         <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl">
-          <p className="font-bold text-red-600 dark:text-red-400 mb-2">Nutrition page error — check terminal</p>
-          <pre className="text-xs text-red-500 whitespace-pre-wrap">{String(error)}</pre>
+          <p className="font-bold text-red-600 dark:text-red-400 mb-2">
+            Nutrition page error — check terminal
+          </p>
+          <pre className="text-xs text-red-500 whitespace-pre-wrap">
+            {String(error)}
+          </pre>
         </div>
       </div>
     );

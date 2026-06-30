@@ -12,11 +12,12 @@ interface Props {
     saved: boolean;
     error: string;
     isNew: boolean;
+    isDirty: boolean;
     accentColor: string;
     onSave: () => void;
 }
 
-export function SaveBar({ isPending, saved, error, isNew, accentColor, onSave }: Props) {
+export function SaveBar({ isPending, saved, error, isNew, isDirty, accentColor, onSave }: Props) {
     return (
         <div className="sticky bottom-4 flex items-center justify-between gap-4 px-5 py-3.5 rounded-2xl border shadow-lg"
             style={{ background: "var(--bg-card)", borderColor: "var(--border-card)" }}>
@@ -35,7 +36,8 @@ export function SaveBar({ isPending, saved, error, isNew, accentColor, onSave }:
                     </p>
                 )}
             </div>
-            <button onClick={onSave} disabled={isPending}
+            <button onClick={onSave}
+                disabled={isPending || !isDirty}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold disabled:opacity-50 transition-all hover:opacity-90 active:scale-95"
                 style={{ background: accentColor, color: isLight(accentColor) ? "#000" : "#fff" }}>
                 <Save size={14} />

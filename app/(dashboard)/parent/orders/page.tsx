@@ -159,7 +159,7 @@ export default async function OrdersPage({
                     {config.label}
                   </span>
                   <span className="text-sm font-semibold text-(--text-primary)">
-                    ${parseFloat(order.totalAmount).toFixed(2)}
+                    Rs. {Math.round(parseFloat(order.totalAmount)).toLocaleString("en-PK")}
                   </span>
                   <ChevronRight size={18} className="text-(--text-muted)" />
                 </div>

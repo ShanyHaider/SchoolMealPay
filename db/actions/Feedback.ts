@@ -1,24 +1,35 @@
 "use server";
 
 import { db } from "@/drizzle/db";
-import { mealFeedbackTable, systemFeedbackTable } from "@/drizzle/schema";
-import { eq, and } from "drizzle-orm";
+import {
+  mealFeedbackTable,
+  systemFeedbackTable,
+  studentsTable,
+  usersTable,
+} from "@/drizzle/schema";
+import { eq } from "drizzle-orm";
 import {
   revalidateMealFeedbackCache,
   revalidateSystemFeedbackCache,
 } from "@/lib/cacheRevalidation";
+import { notify } from "@/lib/notification/notify";
+import { PushEvents } from "@/lib/notification/webpush";
 
-/**
- * Submit a star rating + optional comment for a meal order.
- * Parents rate meals after their child has collected the order.
- * Idempotent — updates if feedback already exists for the same order.
- *
- * Schema columns: orderId, studentId, userId (parent's user id), rating, comment
- * No menuItemId or parentId columns on mealFeedbackTable.
- */
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+async function getSchoolAdminIds(): Promise<string[]> {
+  const admins = await db.query.usersTable.findMany({
+    where: eq(usersTable.role, "school_admin"),
+    columns: { id: true },
+  });
+  return admins.map((a) => a.id);
+}
+
+// ── submitMealFeedback ─────────────────────────────────────────────────────────
+
 export async function submitMealFeedback(data: {
   orderId: string;
-  userId: string; // parent's users.id (not clerkId)
+  userId: string;
   studentId: string;
   rating: 1 | 2 | 3 | 4 | 5;
   comment?: string;
@@ -43,13 +54,33 @@ export async function submitMealFeedback(data: {
   }
 
   revalidateMealFeedbackCache(data.orderId, data.studentId);
+
+  // Alert school admins for low ratings (1 or 2 stars)
+  if (data.rating <= 2) {
+    const [adminIds, student] = await Promise.all([
+      getSchoolAdminIds(),
+      db.query.studentsTable.findFirst({
+        where: eq(studentsTable.id, data.studentId),
+        columns: { name: true },
+      }),
+    ]);
+
+    const studentName = student?.name ?? "A student";
+
+    await Promise.all(
+      adminIds.map((id) =>
+        notify({
+          userId: id,
+          type: "low_rating_feedback",
+          event: PushEvents.admin.lowRatingFeedback(studentName, data.rating),
+        }).catch(console.error),
+      ),
+    );
+  }
 }
 
-/**
- * Submit a bug report or feature request from any user.
- *
- * Schema enum for type: "meal" | "system" | "feature_request" | "bug_report"
- */
+// ── submitSystemFeedback ───────────────────────────────────────────────────────
+
 export async function submitSystemFeedback(data: {
   userId: string;
   type: "meal" | "system" | "feature_request" | "bug_report";
@@ -57,4 +88,22 @@ export async function submitSystemFeedback(data: {
 }) {
   await db.insert(systemFeedbackTable).values(data);
   revalidateSystemFeedbackCache(data.userId);
+
+  // Notify all school admins — bug reports and feature requests need attention
+  const adminIds = await getSchoolAdminIds();
+
+  await Promise.all(
+    adminIds.map((id) =>
+      notify({
+        userId: id,
+        type: "system_feedback_submitted",
+        event: PushEvents.admin.systemFeedbackSubmitted(data.type),
+        // In-app only for feature_request/meal; push for bug_report and system
+        channels:
+          data.type === "bug_report" || data.type === "system"
+            ? ["in_app", "push"]
+            : ["in_app"],
+      }).catch(console.error),
+    ),
+  );
 }

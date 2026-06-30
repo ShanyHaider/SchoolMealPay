@@ -38,8 +38,7 @@ export const ordersTable = pgTable(
       .notNull()
       .references(() => studentsTable.id),
     parentId: uuid("parent_id")
-      .notNull()
-      .references(() => usersTable.id),
+      .references(() => usersTable.id, { onDelete: "set null" }),
     canteenId: uuid("canteen_id")
       .notNull()
       .references(() => canteensTable.id),

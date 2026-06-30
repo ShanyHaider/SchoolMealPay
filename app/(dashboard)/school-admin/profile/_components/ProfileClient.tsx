@@ -8,6 +8,7 @@ import { ProfileForms, type FormValues } from "./ProfileForms";
 import { BrandPanel } from "./BrandPanel";
 import { CompletionPanel } from "./CompletionPanel";
 import { SaveBar } from "./SaveBar";
+import { ImageUpload } from "./ImageUpload";
 
 type SchoolProfile = typeof schoolProfileTable.$inferSelect | null;
 
@@ -51,15 +52,15 @@ export function SchoolProfileClient({ school, stats, studentLimit, tier }: Props
     const [error, setError] = useState("");
 
     const isPremium = tier === "premium_school";
-    const logoInputRef = useRef<HTMLInputElement>(null);
-    const bannerInputRef = useRef<HTMLInputElement>(null);
+
+    const [isDirty, setIsDirty] = useState(false);
 
     const [form, setForm] = useState<FormValues>({
         name: school?.name ?? "",
         address: school?.address ?? "",
         city: school?.city ?? "",
         logoUrl: school?.logoUrl ?? "",
-        bannerUrl: "", // add bannerUrl to your DB schema when ready
+        bannerUrl: school?.bannerUrl ?? "",
         email: school?.email ?? "",
         phone: school?.phone ?? "",
         timezone: school?.timezone ?? "Asia/Karachi",
@@ -70,6 +71,7 @@ export function SchoolProfileClient({ school, stats, studentLimit, tier }: Props
 
     function update<K extends keyof FormValues>(key: K, value: FormValues[K]) {
         setForm((f) => ({ ...f, [key]: value }));
+        setIsDirty(true);  // ← add this
         setSaved(false);
         setError("");
     }
@@ -83,6 +85,7 @@ export function SchoolProfileClient({ school, stats, studentLimit, tier }: Props
                     address: form.address || null,
                     city: form.city || null,
                     logoUrl: form.logoUrl || null,
+                    bannerUrl: form.bannerUrl || null,
                     email: form.email || null,
                     phone: form.phone || null,
                     timezone: form.timezone,
@@ -91,6 +94,7 @@ export function SchoolProfileClient({ school, stats, studentLimit, tier }: Props
                     schoolType: (form.schoolType || null) as "primary" | "secondary" | "both" | null,
                 });
                 setSaved(true);
+                setIsDirty(false);  // ← reset after save
                 setTimeout(() => setSaved(false), 3000);
             } catch (err: any) {
                 setError(err?.message ?? "Failed to save. Please try again.");
@@ -118,35 +122,14 @@ export function SchoolProfileClient({ school, stats, studentLimit, tier }: Props
                 style={{ background: "var(--bg-card)", border: "1px solid var(--border-card)" }}>
 
                 {/* Banner upload zone — replaces the static gradient */}
-                <div className="relative h-36 w-full group cursor-pointer"
-                    onClick={() => bannerInputRef.current?.click()}
-                    style={{
-                        background: form.bannerUrl
-                            ? "transparent"
-                            : `linear-gradient(135deg, ${liveColor}cc 0%, ${liveColor}66 60%, ${liveColor}22 100%)`,
-                    }}>
-                    {form.bannerUrl && (
-                        <img src={form.bannerUrl} alt="" className="w-full h-full object-cover" />
-                    )}
-                    {/* Hover overlay */}
-                    <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                        style={{ background: "rgba(0,0,0,0.35)" }}>
-                        <Camera size={16} color="#fff" />
-                        <span className="text-xs font-semibold text-white">
-                            {form.bannerUrl ? "Change banner" : "Upload banner"}
-                        </span>
-                    </div>
-                    {/* Clear banner */}
-                    {form.bannerUrl && (
-                        <button type="button"
-                            onClick={(e) => { e.stopPropagation(); update("bannerUrl", ""); }}
-                            className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center z-10"
-                            style={{ background: "rgba(0,0,0,0.55)" }}>
-                            <X size={11} color="#fff" />
-                        </button>
-                    )}
-                    <input ref={bannerInputRef} type="file" accept="image/*" className="hidden"
-                        onChange={(e) => { const f = e.target.files?.[0]; if (f) update("bannerUrl", URL.createObjectURL(f)); e.target.value = ""; }} />
+                <div className="h-36 w-full">
+                    <div><ImageUpload
+                        variant="banner"
+                        value={form.bannerUrl}
+                        onChange={(url) => update("bannerUrl", url)}
+                        accentColor={liveColor}
+                    /></div>
+
                 </div>
 
                 {/* Logo + name row */}
@@ -154,34 +137,18 @@ export function SchoolProfileClient({ school, stats, studentLimit, tier }: Props
                     <div className="flex items-end gap-5 -mt-10">
 
                         {/* Logo upload — replaces static circle */}
-                        <div className="relative w-20 h-20 rounded-2xl border-4 overflow-hidden shrink-0 flex items-center justify-center shadow-lg group cursor-pointer"
-                            style={{ borderColor: "var(--bg-card)", background: form.logoUrl ? "transparent" : `${liveColor}20` }}
-                            onClick={() => logoInputRef.current?.click()}>
-                            {form.logoUrl
-                                ? <img src={form.logoUrl} alt="School logo" className="w-full h-full object-cover"
-                                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                                : <Building2 size={28} style={{ color: liveColor }} />}
-                            {/* Hover overlay */}
-                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"
-                                style={{ background: "rgba(0,0,0,0.45)" }}>
-                                <Camera size={14} color="#fff" />
-                            </div>
-                            {/* Clear logo */}
-                            {form.logoUrl && (
-                                <button type="button"
-                                    onClick={(e) => { e.stopPropagation(); update("logoUrl", ""); }}
-                                    className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full flex items-center justify-center z-10 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    style={{ background: "rgba(0,0,0,0.6)" }}>
-                                    <X size={9} color="#fff" />
-                                </button>
-                            )}
-                            <input ref={logoInputRef} type="file" accept="image/*" className="hidden"
-                                onChange={(e) => { const f = e.target.files?.[0]; if (f) update("logoUrl", URL.createObjectURL(f)); e.target.value = ""; }} />
+                        <div className="relative -mt-10 shrink-0">
+                            <ImageUpload
+                                variant="avatar"
+                                value={form.logoUrl}
+                                onChange={(url) => update("logoUrl", url)}
+                                accentColor={liveColor}
+                            />
                         </div>
 
                         {/* School info — unchanged */}
                         <div className="pb-1 min-w-0 flex-1">
-                            <h2 className="text-xl font-black truncate" style={{ color: "var(--text-primary)" }}>
+                            <h2 className="text-xl font-black truncate pt-3" style={{ color: "var(--text-primary)" }}>
                                 {form.name || "Your School Name"}
                             </h2>
                             <div className="flex flex-wrap items-center gap-3 mt-1">
@@ -241,6 +208,7 @@ export function SchoolProfileClient({ school, stats, studentLimit, tier }: Props
                 saved={saved}
                 error={error}
                 isNew={!school}
+                isDirty={isDirty}
                 accentColor={liveColor}
                 onSave={handleSave}
             />

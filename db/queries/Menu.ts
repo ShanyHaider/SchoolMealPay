@@ -15,7 +15,10 @@ import { getGlobalTag, getCanteenTag } from "@/lib/cache";
 export async function getDailyMenuForParent(canteenId: string, date: string) {
   "use cache";
   cacheLife("minutes");
-  cacheTag(getGlobalTag("daily-menus"), getCanteenTag("daily-menus", canteenId));
+  cacheTag(
+    getGlobalTag("daily-menus"),
+    getCanteenTag("daily-menus", canteenId),
+  );
   return db.query.dailyMenusTable.findMany({
     where: and(
       eq(dailyMenusTable.canteenId, canteenId),
@@ -68,7 +71,10 @@ export async function getWeeklyMenu(
 ) {
   "use cache";
   cacheLife("minutes");
-  cacheTag(getGlobalTag("daily-menus"), getCanteenTag("daily-menus", canteenId));
+  cacheTag(
+    getGlobalTag("daily-menus"),
+    getCanteenTag("daily-menus", canteenId),
+  );
 
   const result = await db.query.dailyMenusTable.findMany({
     where: and(
@@ -93,5 +99,11 @@ export async function getWeeklyMenu(
     orderBy: [dailyMenusTable.menuDate, dailyMenusTable.mealSlot],
   });
 
-  return result;
+  return result.map((row) => ({
+    ...row,
+    menuItem: {
+      ...row.menuItem,
+      price: Number(row.menuItem.price),
+    },
+  }));
 }

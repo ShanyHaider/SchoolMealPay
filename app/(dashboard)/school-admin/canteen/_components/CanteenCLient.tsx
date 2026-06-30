@@ -3,14 +3,29 @@
 import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createCanteen, updateCanteen, deleteCanteen } from "@/db/actions/admin/Canteen";
+import {
+  createCanteen,
+  updateCanteen,
+  deleteCanteen,
+} from "@/db/actions/admin/Canteen";
 import { createCanteenSchema } from "@/lib/validations/canteen";
-import type { CreateCanteenInput, UpdateCanteenInput } from "@/lib/validations/canteen";
+import type {
+  CreateCanteenInput,
+  UpdateCanteenInput,
+} from "@/lib/validations/canteen";
 import { useToast, ToastContainer } from "@/components/useToast";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import {
-  Plus, MapPin, Clock, Users2, UtensilsCrossed,
-  Pencil, Trash2, X, ToggleLeft, ToggleRight,
+  Plus,
+  MapPin,
+  Clock,
+  Users2,
+  UtensilsCrossed,
+  Pencil,
+  Trash2,
+  X,
+  ToggleLeft,
+  ToggleRight,
 } from "lucide-react";
 import z from "zod";
 
@@ -38,8 +53,8 @@ function fmtHours(from?: string | null, until?: string | null) {
 function getInitials(name?: string) {
   if (!name) return "?";
   const parts = name.trim().split(" ");
-  return parts.length >= 2
-    ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+  return parts.length >= 2 ?
+      `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
     : parts[0][0].toUpperCase();
 }
 
@@ -70,7 +85,10 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-1.5 w-full">
-      <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+      <label
+        className="text-xs font-medium"
+        style={{ color: "var(--text-secondary)" }}
+      >
         {label}
       </label>
       {children}
@@ -88,7 +106,12 @@ interface CanteenFormModalProps {
   onSuccess: (msg: string) => void;
 }
 
-function CanteenFormModal({ mode, canteen, onClose, onSuccess }: CanteenFormModalProps) {
+function CanteenFormModal({
+  mode,
+  canteen,
+  onClose,
+  onSuccess,
+}: CanteenFormModalProps) {
   const [isPending, startTransition] = useTransition();
 
   const {
@@ -99,15 +122,21 @@ function CanteenFormModal({ mode, canteen, onClose, onSuccess }: CanteenFormModa
   } = useForm<CanteenFormValues>({
     resolver: zodResolver(createCanteenSchema),
     defaultValues:
-      mode === "edit" && canteen
-        ? {
+      mode === "edit" && canteen ?
+        {
           name: canteen.name,
           location: canteen.location ?? null,
           operatingFrom: canteen.operatingFrom ?? null,
           operatingUntil: canteen.operatingUntil ?? null,
           capacity: canteen.capacity ?? null,
         }
-        : { name: "", location: null, operatingFrom: null, operatingUntil: null, capacity: null },
+      : {
+          name: "",
+          location: null,
+          operatingFrom: null,
+          operatingUntil: null,
+          capacity: null,
+        },
   });
 
   const nameValue = watch("name");
@@ -141,12 +170,15 @@ function CanteenFormModal({ mode, canteen, onClose, onSuccess }: CanteenFormModa
         }}
       >
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
+          <h2
+            className="text-lg font-semibold"
+            style={{ color: "var(--text-primary)" }}
+          >
             {mode === "create" ? "New Canteen" : "Edit Canteen"}
           </h2>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 hover:bg-[var(--bg-tertiary)] transition-colors"
+            className="rounded-lg p-1.5 hover:bg-(--bg-tertiary) transition-colors"
           >
             <X size={15} style={{ color: "var(--text-muted)" }} />
           </button>
@@ -154,25 +186,42 @@ function CanteenFormModal({ mode, canteen, onClose, onSuccess }: CanteenFormModa
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <Field label="Name *" error={errors.name?.message}>
-            <input {...register("name")} placeholder="e.g. Main Canteen" style={inputStyle} />
+            <input
+              {...register("name")}
+              placeholder="e.g. Main Canteen"
+              style={inputStyle}
+            />
           </Field>
 
           <Field label="Location" error={errors.location?.message}>
-            <input {...register("location")} placeholder="e.g. Block A, Ground Floor" style={inputStyle} />
+            <input
+              {...register("location")}
+              placeholder="e.g. Block A, Ground Floor"
+              style={inputStyle}
+            />
           </Field>
-
 
           {/* Operating hours — stacks on mobile, side by side on sm+ */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+            <label
+              className="text-xs font-medium"
+              style={{ color: "var(--text-secondary)" }}
+            >
               Operating Hours
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div className="flex flex-col gap-1">
-                <label className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                <label
+                  className="text-[11px]"
+                  style={{ color: "var(--text-muted)" }}
+                >
                   Opens
                 </label>
-                <input type="time" {...register("operatingFrom")} style={inputStyle} />
+                <input
+                  type="time"
+                  {...register("operatingFrom")}
+                  style={inputStyle}
+                />
                 {errors.operatingFrom && (
                   <span style={{ color: "#ef4444", fontSize: 11 }}>
                     {errors.operatingFrom.message}
@@ -180,10 +229,17 @@ function CanteenFormModal({ mode, canteen, onClose, onSuccess }: CanteenFormModa
                 )}
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                <label
+                  className="text-[11px]"
+                  style={{ color: "var(--text-muted)" }}
+                >
                   Closes
                 </label>
-                <input type="time" {...register("operatingUntil")} style={inputStyle} />
+                <input
+                  type="time"
+                  {...register("operatingUntil")}
+                  style={inputStyle}
+                />
                 {errors.operatingUntil && (
                   <span style={{ color: "#ef4444", fontSize: 11 }}>
                     {errors.operatingUntil.message}
@@ -221,11 +277,18 @@ function CanteenFormModal({ mode, canteen, onClose, onSuccess }: CanteenFormModa
               type="submit"
               disabled={isSubmitDisabled}
               className="flex-1 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-              style={{ background: "var(--accent)", color: "var(--accent-text)" }}
+              style={{
+                background: "var(--accent)",
+                color: "var(--accent-text)",
+              }}
             >
-              {isPending
-                ? mode === "create" ? "Creating…" : "Saving…"
-                : mode === "create" ? "Create" : "Save Changes"}
+              {isPending ?
+                mode === "create" ?
+                  "Creating…"
+                : "Saving…"
+              : mode === "create" ?
+                "Create"
+              : "Save Changes"}
             </button>
           </div>
         </form>
@@ -244,7 +307,13 @@ interface CanteenCardProps {
   onToggleActive: () => void;
 }
 
-function CanteenCard({ canteen, isPending, onEdit, onDelete, onToggleActive }: CanteenCardProps) {
+function CanteenCard({
+  canteen,
+  isPending,
+  onEdit,
+  onDelete,
+  onToggleActive,
+}: CanteenCardProps) {
   const hours = fmtHours(canteen.operatingFrom, canteen.operatingUntil);
   const staffCount = canteen.staffAssignments?.length ?? 0;
 
@@ -272,14 +341,20 @@ function CanteenCard({ canteen, isPending, onEdit, onDelete, onToggleActive }: C
             <span
               className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide"
               style={
-                canteen.isActive
-                  ? { background: "rgba(34,197,94,0.1)", color: "#16a34a" }
-                  : { background: "var(--bg-tertiary)", color: "var(--text-muted)" }
+                canteen.isActive ?
+                  { background: "rgba(34,197,94,0.1)", color: "#16a34a" }
+                : {
+                    background: "var(--bg-tertiary)",
+                    color: "var(--text-muted)",
+                  }
               }
             >
               <span
                 className="w-1.5 h-1.5 rounded-full"
-                style={{ background: canteen.isActive ? "#16a34a" : "var(--text-muted)" }}
+                style={{
+                  background:
+                    canteen.isActive ? "#16a34a" : "var(--text-muted)",
+                }}
               />
               {canteen.isActive ? "Active" : "Inactive"}
             </span>
@@ -302,7 +377,7 @@ function CanteenCard({ canteen, isPending, onEdit, onDelete, onToggleActive }: C
           <button
             onClick={onEdit}
             title="Edit"
-            className="p-1.5 rounded-lg transition-colors hover:bg-[var(--bg-secondary)]"
+            className="p-1.5 rounded-lg transition-colors hover:bg-(--bg-secondary)"
           >
             <Pencil size={14} style={{ color: "var(--text-muted)" }} />
           </button>
@@ -319,9 +394,9 @@ function CanteenCard({ canteen, isPending, onEdit, onDelete, onToggleActive }: C
             title={canteen.isActive ? "Deactivate" : "Activate"}
             className="ml-1 disabled:opacity-50"
           >
-            {canteen.isActive
-              ? <ToggleRight size={24} style={{ color: "#16a34a" }} />
-              : <ToggleLeft size={24} style={{ color: "var(--text-muted)" }} />}
+            {canteen.isActive ?
+              <ToggleRight size={24} style={{ color: "#16a34a" }} />
+            : <ToggleLeft size={24} style={{ color: "var(--text-muted)" }} />}
           </button>
         </div>
       </div>
@@ -339,10 +414,18 @@ function CanteenCard({ canteen, isPending, onEdit, onDelete, onToggleActive }: C
             >
               <Clock size={13} style={{ color: "var(--text-muted)" }} />
               <div>
-                <p className="text-[10px] uppercase font-semibold tracking-wide mb-0.5" style={{ color: "var(--text-muted)" }}>
+                <p
+                  className="text-[10px] uppercase font-semibold tracking-wide mb-0.5"
+                  style={{ color: "var(--text-muted)" }}
+                >
                   Hours
                 </p>
-                <p className="font-medium" style={{ color: "var(--text-primary)" }}>{hours}</p>
+                <p
+                  className="font-medium"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  {hours}
+                </p>
               </div>
             </div>
           )}
@@ -353,10 +436,16 @@ function CanteenCard({ canteen, isPending, onEdit, onDelete, onToggleActive }: C
             >
               <Users2 size={13} style={{ color: "var(--text-muted)" }} />
               <div>
-                <p className="text-[10px] uppercase font-semibold tracking-wide mb-0.5" style={{ color: "var(--text-muted)" }}>
+                <p
+                  className="text-[10px] uppercase font-semibold tracking-wide mb-0.5"
+                  style={{ color: "var(--text-muted)" }}
+                >
                   Capacity
                 </p>
-                <p className="font-medium" style={{ color: "var(--text-primary)" }}>
+                <p
+                  className="font-medium"
+                  style={{ color: "var(--text-primary)" }}
+                >
                   {canteen.capacity} seats
                 </p>
               </div>
@@ -377,7 +466,7 @@ function CanteenCard({ canteen, isPending, onEdit, onDelete, onToggleActive }: C
           Staff assigned ({staffCount})
         </p>
 
-        {staffCount > 0 ? (
+        {staffCount > 0 ?
           <div className="flex flex-wrap gap-1.5">
             {canteen.staffAssignments!.map((a) => (
               <div
@@ -402,11 +491,10 @@ function CanteenCard({ canteen, isPending, onEdit, onDelete, onToggleActive }: C
               </div>
             ))}
           </div>
-        ) : (
-          <p className="text-xs italic" style={{ color: "var(--text-muted)" }}>
+        : <p className="text-xs italic" style={{ color: "var(--text-muted)" }}>
             No staff assigned yet. Go to the Staff page to assign.
           </p>
-        )}
+        }
       </div>
     </div>
   );
@@ -490,18 +578,24 @@ export function CanteenClient({ canteens }: { canteens: Canteen[] }) {
       </div>
 
       {/* Empty state */}
-      {canteens.length === 0 ? (
+      {canteens.length === 0 ?
         <div
           className="rounded-xl border py-16 text-center px-4"
-          style={{ background: "var(--bg-card)", borderColor: "var(--border-card)" }}
+          style={{
+            background: "var(--bg-card)",
+            borderColor: "var(--border-card)",
+          }}
         >
-          <UtensilsCrossed size={32} className="mx-auto mb-3" style={{ color: "var(--text-muted)" }} />
+          <UtensilsCrossed
+            size={32}
+            className="mx-auto mb-3"
+            style={{ color: "var(--text-muted)" }}
+          />
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>
             No canteens yet. Add your first canteen.
           </p>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
+      : <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
           {canteens.map((canteen) => (
             <CanteenCard
               key={canteen.id}
@@ -513,7 +607,7 @@ export function CanteenClient({ canteens }: { canteens: Canteen[] }) {
             />
           ))}
         </div>
-      )}
+      }
     </>
   );
 }

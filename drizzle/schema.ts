@@ -9,10 +9,12 @@ export * from "./schema/canteens";
 
 // Menu, daily scheduling & inventory
 export * from "./schema/menu";
-export * from "./schema/inventoryLogs";
 
-// Orders & order items
+// Orders & order items  ← moved up, before inventoryLogs
 export * from "./schema/orders";
+
+// Inventory logs ← now after orders (fixes the circular ref)
+export * from "./schema/inventoryLogs";
 
 // Parental controls
 export * from "./schema/parentalControls";
@@ -38,15 +40,16 @@ export * from "./schema/auditLogs";
 // Chatbot
 export * from "./schema/chatbot";
 
-// Relations
-export * from "./relations";
-
 // StripeWebhooks
 export * from "./schema/stripeWebhooks";
-
 
 export * from "./schema/staffInvitationTable";
 
 export * from "./schema/schoolProfile";
 
-export * from "./schema/pushSubscriptions"
+export * from "./schema/pushSubscriptions";
+
+export * from "./schema/marketing"
+
+// Relations — must be last, after all tables are exported
+export * from "./relations";

@@ -15,9 +15,11 @@ import {
     revalidateParentChildLinkCache,
 } from "@/lib/cacheRevalidation";
 import { revalidatePath } from "next/cache";
+import { notify, notifyMany } from "@/lib/notification/notify";
+import { PushEvents } from "@/lib/notification/webpush";
+import { notifyAdminLinkRequested } from "@/db/actions/Admin";
 
-// ─── Students ──────────────────────────────────────────────────
-
+// ─── Students ─────────────────────────────────────────────────────────────────
 
 export async function toggleStudentOrdering(
     studentId: string,
@@ -31,9 +33,35 @@ export async function toggleStudentOrdering(
     revalidateStudentCache(studentId);
     revalidatePath("/parent/children");
     revalidatePath("/school-admin/students");
+
+    // Notify all approved parents linked to this student
+    const [links, student] = await Promise.all([
+        db.query.parentChildLinksTable.findMany({
+            where: and(
+                eq(parentChildLinksTable.studentId, studentId),
+                eq(parentChildLinksTable.status, "approved"),
+            ),
+        }),
+        db.query.studentsTable.findFirst({
+            where: eq(studentsTable.id, studentId),
+            columns: { name: true },
+        }),
+    ]);
+
+    const name = student?.name ?? "Your child";
+    const parentIds = links.map((l) => l.parentId);
+
+    if (parentIds.length > 0) {
+        notifyMany(parentIds, {
+            type: enabled ? "ordering_enabled" : "ordering_disabled",
+            event: enabled
+                ? PushEvents.orderingEnabled(name)
+                : PushEvents.orderingDisabled(name),
+        }).catch(console.error);
+    }
 }
 
-// ─── Child Profile ─────────────────────────────────────────────
+// ─── Child Profile ─────────────────────────────────────────────────────────────
 
 export async function upsertChildProfile(
     profile: typeof childProfilesTable.$inferInsert,
@@ -49,15 +77,12 @@ export async function upsertChildProfile(
     revalidateChildProfileCache(profile.studentId!);
     revalidatePath("/parent/children");
     revalidatePath(`/parent/children/${profile.studentId}`);
-
 }
 
-// Replaces all allergens for a student in one operation
 export async function setStudentAllergens(
     studentId: string,
     allergens: (typeof studentAllergensTable.$inferInsert)["allergen"][],
 ) {
-    // Delete all existing then re-insert selected ones
     await db
         .delete(studentAllergensTable)
         .where(eq(studentAllergensTable.studentId, studentId));
@@ -69,14 +94,12 @@ export async function setStudentAllergens(
     }
 
     revalidateStudentAllergenCache(studentId);
-    // Also bust student cache since allergens are usually fetched with student
     revalidateStudentCache(studentId);
-
     revalidatePath("/parent/children");
     revalidatePath("/school-admin/students");
 }
 
-// ─── Parent-Child Links ────────────────────────────────────────
+// ─── Parent-Child Links ────────────────────────────────────────────────────────
 
 export async function requestParentChildLink(
     parentId: string,
@@ -91,6 +114,11 @@ export async function requestParentChildLink(
     revalidateParentChildLinkCache(parentId, studentId);
     revalidatePath("/parent/children");
     revalidatePath("/school-admin/students");
+
+    // Notify school admins a new link request needs review
+    if (link) {
+        notifyAdminLinkRequested(parentId, studentId).catch(console.error);
+    }
 
     return link;
 }
@@ -137,7 +165,6 @@ export async function requestParentChildLinkByCode(
     parentId: string,
     studentCode: string,
 ) {
-    // 1. Resolve studentCode → student UUID
     const [student] = await db
         .select({ id: studentsTable.id })
         .from(studentsTable)
@@ -148,7 +175,6 @@ export async function requestParentChildLinkByCode(
         throw new Error("Student not found. Please check the ID and try again.");
     }
 
-    // 2. Insert the link using the real UUID
     const [link] = await db
         .insert(parentChildLinksTable)
         .values({ parentId, studentId: student.id, status: "pending" })
@@ -158,6 +184,10 @@ export async function requestParentChildLinkByCode(
     revalidateParentChildLinkCache(parentId, student.id);
     revalidatePath("/parent/children");
     revalidatePath("/school-admin/students");
+
+    if (link) {
+        notifyAdminLinkRequested(parentId, student.id).catch(console.error);
+    }
 
     return link;
 }

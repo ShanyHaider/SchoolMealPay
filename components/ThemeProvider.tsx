@@ -48,8 +48,8 @@ export function ThemeProvider({
         theme === "system" ?
           mediaQuery.matches ?
             "dark"
-          : "light"
-        : theme;
+            : "light"
+          : theme;
       setResolvedTheme(resolved);
       root.classList.remove("light", "dark");
       root.classList.add(resolved);
@@ -82,7 +82,12 @@ export function useTheme() {
 
 export function ThemeToggleButton() {
   const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const isDark = resolvedTheme === "dark";
+
+  if (!mounted) return <div className="h-11 w-11" />;
 
   return (
     <button
@@ -99,10 +104,9 @@ export function ThemeToggleButton() {
           transition={{ duration: 0.15 }}
           className="flex items-center justify-center"
         >
-          {/* Increased icon footprint from 16px to 19px */}
           {isDark ?
             <Sun size={19} className="text-amber-500" />
-          : <Moon size={19} />}
+            : <Moon size={19} />}
         </motion.div>
       </AnimatePresence>
     </button>

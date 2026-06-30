@@ -1,6 +1,8 @@
 // Safe to import anywhere — no server env vars.
 // Stripe Price IDs live in server actions only (db/actions/stripe.ts).
 
+import { formatPKR } from "@/lib/currency";
+
 export const subscriptionTiers = {
   SchoolFree: {
     name: "Free" as const,
@@ -22,8 +24,8 @@ export const subscriptionTiers = {
   },
   SchoolPremium: {
     name: "Premium" as const,
-    monthlyPriceInCents: 4900,
-    annualPriceInCents: 49000,
+    monthlyPriceInCents: 14000,
+    annualPriceInCents: 140000,
     maxStudents: Number.MAX_SAFE_INTEGER,
     hasAiNutrition: true as boolean,
     hasAdvancedAnalytics: true as boolean,
@@ -58,8 +60,8 @@ export const subscriptionTiers = {
   },
   ParentPro: {
     name: "Parent Pro" as const,
-    monthlyPriceInCents: 499,
-    annualPriceInCents: 4990,
+    monthlyPriceInCents: 1400,
+    annualPriceInCents: 14000,
     hasNutritionDashboard: true as boolean,
     hasAiMealPlanning: true as boolean,
     hasHealthTrends: true as boolean,
@@ -112,9 +114,8 @@ export function canSchoolAccess(
   return subscriptionTiers.SchoolFree[feature];
 }
 
-export function formatPrice(cents: number, currency = "PKR"): string {
-  if (cents === 0) return "Free";
-  return `${currency} ${(cents / 100).toLocaleString()}`;
+export function formatPrice(amount: number): string {
+  return formatPKR(amount);
 }
 
 export function annualSavings(monthly: number, annual: number): number {

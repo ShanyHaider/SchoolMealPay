@@ -4,6 +4,7 @@ import {
   integer,
   pgEnum,
   pgTable,
+  text,
   timestamp,
   uuid,
   varchar,
@@ -81,9 +82,7 @@ export const subscriptionInvoicesTable = pgTable("subscription_invoices", {
     .references(() => schoolSubscriptionTable.id),
   amount: decimal({ precision: 10, scale: 2 }).notNull(),
   status: invoiceStatusEnum().notNull().default("pending"),
-  // FIX: made nullable — parent Pro invoices don't always have a billing cycle
   billingCycle: billingCycleEnum("billing_cycle"),
-  // FIX: added Stripe invoice tracking columns the webhook needs
   stripeInvoiceId: varchar("stripe_invoice_id").unique(),
   currency: varchar({ length: 3 }).notNull().default("PKR"),
   billingPeriodStart: timestamp("billing_period_start", { withTimezone: true }),
@@ -91,6 +90,7 @@ export const subscriptionInvoicesTable = pgTable("subscription_invoices", {
   gatewayInvoiceId: varchar("gateway_invoice_id"),
   paidAt: timestamp("paid_at", { withTimezone: true }),
   dueAt: timestamp("due_at", { withTimezone: true }),
+  hostedInvoiceUrl: text("hosted_invoice_url"),
   createdAt,
 });
 

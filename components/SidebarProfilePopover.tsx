@@ -22,11 +22,16 @@ import { cn } from "@/lib/utils";
 import type { usersTable } from "@/drizzle/schema";
 import { ProfileTab } from "@/components/userMenu/tabs/ProfileTab";
 import { SecurityTab } from "@/components/userMenu/tabs/SecurityTab";
+import { usePathname } from "next/navigation";
 
 type User = typeof usersTable.$inferSelect;
 export type SettingsTab = "profile" | "security" | "billing" | "notifications";
 
-const TAB_CONFIG: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
+const TAB_CONFIG: {
+  id: SettingsTab;
+  label: string;
+  icon: React.ElementType;
+}[] = [
   { id: "profile", label: "Profile", icon: UserIcon },
   { id: "security", label: "Security", icon: ShieldCheck },
   { id: "billing", label: "Billing", icon: CreditCard },
@@ -63,9 +68,8 @@ export function SidebarSettingsModal({
   if (!mounted) return null;
 
   // Only show billing tab if billingTab content was provided
-  const visibleTabs = billingTab
-    ? TAB_CONFIG
-    : TAB_CONFIG.filter((t) => t.id !== "billing");
+  const visibleTabs =
+    billingTab ? TAB_CONFIG : TAB_CONFIG.filter((t) => t.id !== "billing");
 
   return createPortal(
     <AnimatePresence>
@@ -107,10 +111,11 @@ export function SidebarSettingsModal({
                   <button
                     key={id}
                     onClick={() => setActiveTab(id)}
-                    className={`flex items-center gap-2.5 rounded-xl px-3 py-2 md:py-2.5 text-xs font-bold capitalize transition-all shrink-0 cursor-pointer ${activeTab === id
-                      ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
+                    className={`flex items-center gap-2.5 rounded-xl px-3 py-2 md:py-2.5 text-xs font-bold capitalize transition-all shrink-0 cursor-pointer ${
+                      activeTab === id ?
+                        "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950"
                       : "text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
-                      }`}
+                    }`}
                   >
                     <Icon size={14} />
                     {label}
@@ -163,6 +168,14 @@ export function SidebarProfilePopover({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (pathname.includes("/billing")) {
+      setSettingsOpen(false);
+    }
+  }, [pathname]);
+
   useEffect(() => {
     setMounted(true);
     return () => setMounted(false);
@@ -200,71 +213,72 @@ export function SidebarProfilePopover({
     setSettingsOpen(true);
   };
 
-  const popover = mounted
-    ? createPortal(
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            ref={popoverRef}
-            initial={{ opacity: 0, x: -8, scale: 0.96 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: -8, scale: 0.96 }}
-            transition={{ duration: 0.15 }}
-            style={popoverStyle}
-            className="w-52 p-1.5 rounded-2xl border border-[var(--border-card)] bg-[var(--bg-card)] shadow-2xl"
-          >
-            {/* User info */}
-            <div className="px-3 py-2.5 border-b border-[var(--border-primary)] mb-1">
-              <p className="text-xs font-bold text-[var(--text-primary)] truncate">
-                {user.name}
-              </p>
-              <p className="text-[10px] text-[var(--text-muted)] truncate mt-0.5">
-                {role}
-              </p>
-            </div>
+  const popover =
+    mounted ?
+      createPortal(
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              ref={popoverRef}
+              initial={{ opacity: 0, x: -8, scale: 0.96 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: -8, scale: 0.96 }}
+              transition={{ duration: 0.15 }}
+              style={popoverStyle}
+              className="w-52 p-1.5 rounded-2xl border border-(--border-card) bg-(--bg-card) shadow-2xl"
+            >
+              {/* User info */}
+              <div className="px-3 py-2.5 border-b border-(--border-primary) mb-1">
+                <p className="text-xs font-bold text-(--text-primary) truncate">
+                  {user.name}
+                </p>
+                <p className="text-[10px] text-(--text-muted) truncate mt-0.5">
+                  {role}
+                </p>
+              </div>
 
-            {/* Actions */}
-            <div className="space-y-0.5">
-              <button
-                onClick={() => openSettings("profile")}
-                className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)] text-left cursor-pointer transition-colors"
-              >
-                <Settings size={13} /> Settings
-              </button>
-
-              {billingTab && (
+              {/* Actions */}
+              <div className="space-y-0.5">
                 <button
-                  onClick={() => openSettings("billing")}
-                  className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)] text-left cursor-pointer transition-colors"
+                  onClick={() => openSettings("profile")}
+                  className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-(--text-secondary) hover:bg-(--bg-tertiary) hover:text-(--text-primary) text-left cursor-pointer transition-colors"
                 >
-                  <CreditCard size={13} /> Billing
+                  <Settings size={13} /> Settings
                 </button>
-              )}
 
-              <button
-                onClick={() => openSettings("notifications")}
-                className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)] text-left cursor-pointer transition-colors"
-              >
-                <Bell size={13} /> Notifications
-              </button>
+                {billingTab && (
+                  <button
+                    onClick={() => openSettings("billing")}
+                    className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-(--text-secondary) hover:bg-(--bg-tertiary) hover:text-(--text-primary) text-left cursor-pointer transition-colors"
+                  >
+                    <CreditCard size={13} /> Billing
+                  </button>
+                )}
 
-              <div className="h-px bg-[var(--border-primary)] my-1" />
+                <button
+                  onClick={() => openSettings("notifications")}
+                  className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-(--text-secondary) hover:bg-(--bg-tertiary) hover:text-(--text-primary) text-left cursor-pointer transition-colors"
+                >
+                  <Bell size={13} /> Notifications
+                </button>
 
-              <button
-                onClick={async () => {
-                  setIsOpen(false);
-                  await signOut({ redirectUrl: "/" });
-                }}
-                className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-red-500 hover:bg-red-500/10 text-left cursor-pointer transition-colors"
-              >
-                <LogOut size={13} /> Logout
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>,
-      document.body,
-    )
+                <div className="h-px bg-(--border-primary) my-1" />
+
+                <button
+                  onClick={async () => {
+                    setIsOpen(false);
+                    await signOut({ redirectUrl: "/" });
+                  }}
+                  className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-red-500 hover:bg-red-500/10 text-left cursor-pointer transition-colors"
+                >
+                  <LogOut size={13} /> Logout
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )
     : null;
 
   return (
@@ -283,38 +297,37 @@ export function SidebarProfilePopover({
         ref={triggerRef}
         onClick={handleTriggerClick}
         className={cn(
-          "w-full flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-[var(--bg-tertiary)] transition-colors cursor-pointer",
+          "w-full flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-(--bg-tertiary) transition-colors cursor-pointer",
           isCollapsed && "justify-center px-0",
         )}
       >
-        <div className="w-9 h-9 rounded-full bg-zinc-800 border border-[var(--border-primary)] overflow-hidden shrink-0 shadow-sm flex items-center justify-center">
-          {user.imageUrl ? (
+        <div className="w-9 h-9 rounded-full bg-zinc-800 border border-(--border-primary) overflow-hidden shrink-0 shadow-sm flex items-center justify-center">
+          {user.imageUrl ?
             <img
               src={user.imageUrl}
               alt={user.name ?? "User avatar"}
               className="w-full h-full object-cover"
             />
-          ) : (
-            <span className="text-sm font-bold text-white uppercase">
+          : <span className="text-sm font-bold text-white uppercase">
               {user.name?.[0] || "U"}
             </span>
-          )}
+          }
         </div>
 
         {!isCollapsed && (
           <>
             <div className="flex flex-col min-w-0 flex-1 text-left">
-              <span className="text-sm font-semibold text-[var(--text-primary)] truncate leading-tight">
+              <span className="text-sm font-semibold text-(--text-primary) truncate leading-tight">
                 {user.name}
               </span>
-              <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)] font-bold mt-0.5">
+              <span className="text-[10px] uppercase tracking-[0.2em] text-(--text-muted) font-bold mt-0.5">
                 {role}
               </span>
             </div>
             <ChevronUp
               size={14}
               className={cn(
-                "text-[var(--text-muted)] shrink-0 transition-transform duration-200",
+                "text-(--text-muted) shrink-0 transition-transform duration-200",
                 isOpen && "rotate-180",
               )}
             />

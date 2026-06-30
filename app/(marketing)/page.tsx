@@ -10,7 +10,7 @@ import { PricingSection } from "@/components/PricingSection";
 export default function LandingPage() {
   return (
     <>
-      <main className="overflow-hidden bg-(--bg-primary) text-(--text-primary)">
+      <main className="overflow-hidden bg-(--bg-secondary) text-(--text-primary)">
         <HeroSection />
 
         <section className="px-4 py-24  sm:px-6 lg:px-8">

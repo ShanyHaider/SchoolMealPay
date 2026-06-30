@@ -1,13 +1,10 @@
 import { db } from "@/drizzle/db";
 import {
     ordersTable,
-    orderItemsTable,
-    menuItemsTable,
     nutritionTrendsTable,
     nutritionTargetsTable,
-    studentsTable,
 } from "@/drizzle/schema";
-import { eq, gte, and, inArray } from "drizzle-orm";
+import { eq, gte, and } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
 import { getGlobalTag } from "@/lib/cache";
 

@@ -61,7 +61,7 @@ export function AuthCard({
       <div className="grid w-full max-w-7xl overflow-hidden rounded-3xl border border-border bg-card shadow-2xl lg:grid-cols-2">
         {/* ───────────────── Left Slider ───────────────── */}
 
-        <div className="relative hidden min-h-[700px] overflow-hidden lg:block">
+        <div className="relative hidden min-h-175 overflow-hidden lg:block">
           {slides.map((slide, index) => (
             <div
               key={slide.title}
@@ -122,7 +122,7 @@ export function AuthCard({
 
         {/* ───────────────── Right Form ───────────────── */}
 
-        <div className="flex min-h-[700px] items-center justify-center bg-card px-6 py-10 sm:px-10">
+        <div className="flex min-h-175 items-center justify-center bg-card px-6 py-10 sm:px-10">
           <div className="w-full max-w-md">
             {/* mobile back */}
             <div className="mb-8 lg:hidden">

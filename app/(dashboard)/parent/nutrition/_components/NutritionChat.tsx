@@ -2,21 +2,24 @@
 
 import { useState, useTransition, useRef, useEffect } from "react";
 import { Send, Bot, User, Sparkles } from "lucide-react";
-import { chatAboutNutrition } from "@/db/actions/Nutrition";
-import { NutritionAverages } from "@/types/nutritionTypes";
+import { chatAboutNutrition } from "@/db/actions/ai/nutrition";
+import type { NutritionTargets } from "@/db/actions/ai/nutrition";
+import type { NutritionAverages } from "@/types/nutritionTypes";
 
 interface Message { role: "user" | "assistant"; content: string; }
 
 interface Props {
+    userId: string;
     children: { name: string; avg: NutritionAverages }[];
-    targets: { calories: number; protein: number; fiber: number; carbs: number; fat: number };
+    targets: NutritionTargets;
 }
 
-export function NutritionChat({ children, targets }: Props) {
+export function NutritionChat({ userId, children, targets }: Props) {
     const [selectedChild, setSelectedChild] = useState(children[0]?.name ?? "");
     const [history, setHistory] = useState<Message[]>([]);
     const [input, setInput] = useState("");
     const [isPending, startTransition] = useTransition();
+    const [conversationId, setConversationId] = useState<string | null>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -29,16 +32,20 @@ export function NutritionChat({ children, targets }: Props) {
         const child = children.find((c) => c.name === selectedChild);
         if (!child) return;
 
-        const newHistory: Message[] = [...history, { role: "user", content: msg }];
-        setHistory(newHistory);
+        setHistory(h => [...h, { role: "user", content: msg }]);
         setInput("");
 
         startTransition(async () => {
-            const reply = await chatAboutNutrition(
-                child.name, child.avg, targets,
-                history, msg,
+            const { reply, conversationId: newConvId } = await chatAboutNutrition(
+                userId,
+                child.name,
+                child.avg,
+                targets,
+                conversationId,
+                msg,
             );
-            setHistory((h) => [...h, { role: "assistant", content: reply }]);
+            setConversationId(newConvId);
+            setHistory(h => [...h, { role: "assistant", content: reply }]);
         });
     }
 
@@ -53,7 +60,11 @@ export function NutritionChat({ children, targets }: Props) {
                 {children.length > 1 && (
                     <select
                         value={selectedChild}
-                        onChange={(e) => { setSelectedChild(e.target.value); setHistory([]); }}
+                        onChange={(e) => {
+                            setSelectedChild(e.target.value);
+                            setHistory([]);
+                            setConversationId(null);
+                        }}
                         className="text-sm bg-(--bg-tertiary) text-(--text-primary) border border-(--border-card) rounded-lg px-2 py-1"
                     >
                         {children.map((c) => (
@@ -75,7 +86,7 @@ export function NutritionChat({ children, targets }: Props) {
                         ].map((q) => (
                             <button
                                 key={q}
-                                onClick={() => { setInput(q); }}
+                                onClick={() => setInput(q)}
                                 className="text-left text-sm px-3 py-2 bg-(--bg-tertiary) hover:bg-(--bg-secondary) rounded-xl text-(--text-secondary) transition-colors"
                             >
                                 {q}
@@ -109,8 +120,11 @@ export function NutritionChat({ children, targets }: Props) {
                         <div className="px-4 py-3 bg-(--bg-tertiary) rounded-2xl rounded-tl-sm">
                             <div className="flex gap-1">
                                 {[0, 1, 2].map((i) => (
-                                    <span key={i} className="w-1.5 h-1.5 bg-(--text-muted) rounded-full animate-bounce"
-                                        style={{ animationDelay: `${i * 0.15}s` }} />
+                                    <span
+                                        key={i}
+                                        className="w-1.5 h-1.5 bg-(--text-muted) rounded-full animate-bounce"
+                                        style={{ animationDelay: `${i * 0.15}s` }}
+                                    />
                                 ))}
                             </div>
                         </div>

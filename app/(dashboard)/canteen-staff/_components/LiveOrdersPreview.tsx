@@ -1,12 +1,27 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
-const STATUS_META: Record<string, { label: string; bg: string; color: string }> = {
+const STATUS_META: Record<
+  string,
+  { label: string; bg: string; color: string }
+> = {
   pending: { label: "Pending", bg: "rgba(245,158,11,0.15)", color: "#f59e0b" },
-  preparing: { label: "Preparing", bg: "rgba(59,130,246,0.15)", color: "#3b82f6" },
+  preparing: {
+    label: "Preparing",
+    bg: "rgba(59,130,246,0.15)",
+    color: "#3b82f6",
+  },
   ready: { label: "Ready", bg: "rgba(139,92,246,0.15)", color: "#8b5cf6" },
-  collected: { label: "Collected", bg: "rgba(34,197,94,0.15)", color: "#22c55e" },
-  cancelled: { label: "Cancelled", bg: "rgba(239,68,68,0.15)", color: "#ef4444" },
+  collected: {
+    label: "Collected",
+    bg: "rgba(34,197,94,0.15)",
+    color: "#22c55e",
+  },
+  cancelled: {
+    label: "Cancelled",
+    bg: "rgba(239,68,68,0.15)",
+    color: "#ef4444",
+  },
 };
 
 const AVATAR_COLORS = [
@@ -60,24 +75,29 @@ export function LiveOrdersPreview({ orders }: { orders: any[] }) {
         </h2>
         <Link
           href="/canteen-staff/orders"
-          className="flex items-center gap-1 text-xs font-medium transition-colors hover:text-[var(--text-primary)]"
+          className="flex items-center gap-1 text-xs font-medium transition-colors hover:text-(--text-primary)"
           style={{ color: "var(--text-muted)" }}
         >
           View all <ArrowRight size={12} />
         </Link>
       </div>
 
-      {orders.length === 0 ? (
+      {orders.length === 0 ?
         <div className="py-14 text-center">
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>
             No orders yet today
           </p>
-          <p className="text-xs mt-1" style={{ color: "var(--text-muted)", opacity: 0.6 }}>
+          <p
+            className="text-xs mt-1"
+            style={{ color: "var(--text-muted)", opacity: 0.6 }}
+          >
             Orders will appear here as they come in
           </p>
         </div>
-      ) : (
-        <div className="divide-y" style={{ borderColor: "var(--border-primary)" }}>
+      : <div
+          className="divide-y"
+          style={{ borderColor: "var(--border-primary)" }}
+        >
           {orders.map((order, i) => {
             const meta = STATUS_META[order.status] ?? STATUS_META.pending;
             const avatarColor = AVATAR_COLORS[i % AVATAR_COLORS.length];
@@ -103,7 +123,10 @@ export function LiveOrdersPreview({ orders }: { orders: any[] }) {
                 {/* Avatar */}
                 <div
                   className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                  style={{ background: avatarColor.bg, color: avatarColor.color }}
+                  style={{
+                    background: avatarColor.bg,
+                    color: avatarColor.color,
+                  }}
                 >
                   {initial}
                 </div>
@@ -120,7 +143,10 @@ export function LiveOrdersPreview({ orders }: { orders: any[] }) {
                     {hasAllergens && (
                       <span
                         className="px-1.5 py-0.5 rounded text-[10px] font-semibold flex-shrink-0"
-                        style={{ background: "rgba(239,68,68,0.12)", color: "#ef4444" }}
+                        style={{
+                          background: "rgba(239,68,68,0.12)",
+                          color: "#ef4444",
+                        }}
                       >
                         ⚠ Allergens
                       </span>
@@ -155,7 +181,7 @@ export function LiveOrdersPreview({ orders }: { orders: any[] }) {
             );
           })}
         </div>
-      )}
+      }
     </div>
   );
 }

@@ -5,7 +5,7 @@ import {
   getSchoolSubscriptionData,
   getGlobalUsers,
   getSystemAuditLogs,
-} from "@/db/queries/SuperAdmin";
+} from "@/db/queries/SystemAdmin";
 import { getUserFromDb } from "@/features/users/queries";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";

@@ -4,20 +4,21 @@ import { db } from "@/drizzle/db";
 import {
   notificationsTable,
   mealFeedbackTable,
-  systemFeedbackTable,
   spendingApprovalsTable,
   blockedItemsTable,
+  canteenStaffAssignmentsTable,
 } from "@/drizzle/schema";
 import { and, eq } from "drizzle-orm";
 import {
   revalidateNotificationCache,
   revalidateMealFeedbackCache,
-  revalidateSystemFeedbackCache,
   revalidateSpendingApprovalCache,
   revalidateBlockedItemCache,
 } from "@/lib/cacheRevalidation";
+import { notify, notifyMany } from "@/lib/notification/notify";
+import { PushEvents } from "@/lib/notification/webpush";
 
-// ─── Notifications ─────────────────────────────────────────────
+// ─── Notifications ─────────────────────────────────────────────────────────────
 
 export async function createNotification(
   notification: typeof notificationsTable.$inferInsert,
@@ -57,49 +58,7 @@ export async function markAllNotificationsRead(userId: string) {
   revalidateNotificationCache(userId);
 }
 
-// ─── Meal Feedback ─────────────────────────────────────────────
-
-// export async function submitMealFeedback(
-//   feedback: typeof mealFeedbackTable.$inferInsert,
-// ) {
-//   const [created] = await db
-//     .insert(mealFeedbackTable)
-//     .values(feedback)
-//     .returning();
-
-//   revalidateMealFeedbackCache(created.orderId, created.studentId);
-//   return created;
-// }
-
-export async function respondToFeedback(
-  feedbackId: string,
-  orderId: string,
-  studentId: string,
-  response: string,
-) {
-  await db
-    .update(mealFeedbackTable)
-    .set({ adminResponse: response })
-    .where(eq(mealFeedbackTable.id, feedbackId));
-
-  revalidateMealFeedbackCache(orderId, studentId);
-}
-
-// ─── System Feedback ───────────────────────────────────────────
-
-// export async function submitSystemFeedback(
-//   feedback: typeof systemFeedbackTable.$inferInsert,
-// ) {
-//   const [created] = await db
-//     .insert(systemFeedbackTable)
-//     .values(feedback)
-//     .returning();
-
-//   revalidateSystemFeedbackCache(created.userId);
-//   return created;
-// }
-
-// ─── Spending Approvals ────────────────────────────────────────
+// ─── Spending Approvals ────────────────────────────────────────────────────────
 
 export async function createSpendingApproval(
   approval: typeof spendingApprovalsTable.$inferInsert,
@@ -129,9 +88,70 @@ export async function resolveSpendingApproval(
     .where(eq(spendingApprovalsTable.id, approvalId));
 
   revalidateSpendingApprovalCache(approvalId, parentId);
+
+  notify({
+    userId: parentId,
+    type: `spending_${decision}`,
+    event: PushEvents.spendingApprovalResolved(decision === "approved"),
+  }).catch(console.error);
 }
 
-// ─── Blocked Items ─────────────────────────────────────────────
+// ─── Meal Feedback ─────────────────────────────────────────────────────────────
+
+export async function respondToFeedback(
+  feedbackId: string,
+  orderId: string,
+  studentId: string,
+  response: string,
+) {
+  await db
+    .update(mealFeedbackTable)
+    .set({ adminResponse: response })
+    .where(eq(mealFeedbackTable.id, feedbackId));
+
+  revalidateMealFeedbackCache(orderId, studentId);
+}
+
+// ─── Staff: new order / cancellation helpers ───────────────────────────────────
+// Called from createOrder and cancelOrder so canteen staff are notified in
+// real-time. We look up all staff assigned to the canteen and fan out.
+
+export async function notifyStaffNewOrder(
+  canteenId: string,
+  studentName: string,
+  itemCount: number,
+) {
+  const assignments = await db.query.canteenStaffAssignmentsTable.findMany({
+    where: eq(canteenStaffAssignmentsTable.canteenId, canteenId),
+  });
+
+  const staffIds = assignments.map((a) => a.staffId);
+  if (staffIds.length === 0) return;
+
+  await notifyMany(staffIds, {
+    type: "new_order",
+    event: PushEvents.staff.newOrder(studentName, itemCount),
+  });
+}
+
+export async function notifyStaffOrderCancelled(
+  canteenId: string,
+  studentName: string,
+) {
+  const assignments = await db.query.canteenStaffAssignmentsTable.findMany({
+    where: eq(canteenStaffAssignmentsTable.canteenId, canteenId),
+  });
+
+  const staffIds = assignments.map((a) => a.staffId);
+  if (staffIds.length === 0) return;
+
+  await notifyMany(staffIds, {
+    type: "order_cancelled",
+    event: PushEvents.staff.orderCancelled(studentName),
+  });
+}
+
+// ─── Blocked Items ─────────────────────────────────────────────────────────────
 
 export async function blockMenuItem(
   parentId: string,

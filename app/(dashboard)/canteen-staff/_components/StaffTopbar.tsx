@@ -65,12 +65,12 @@ export function StaffTopbar({ canteen }: StaffTopbarProps) {
       {/* Right Side: Action Utilities */}
       <div className="flex items-center gap-2 sm:gap-3">
         {/* Search */}
-        <div className="hidden md:flex items-center gap-2 rounded-lg border border-[var(--border-input)] bg-[var(--bg-secondary)] px-3 py-1.5 focus-within:ring-1 focus-within:ring-[var(--accent)] transition-all">
-          <Search size={16} className="text-[var(--text-muted)]" />
+        <div className="hidden md:flex items-center gap-2 rounded-lg border border-(--border-input) bg-(--bg-secondary) px-3 py-1.5 focus-within:ring-1 focus-within:ring-(--accent) transition-all">
+          <Search size={16} className="text-(--text-muted)" />
           <input
             type="text"
             placeholder="Search panels..."
-            className="w-[180px] bg-transparent text-[13px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+            className="w-[180px] bg-transparent text-[13px] text-(--text-primary) outline-none placeholder:text-(--text-muted)"
           />
         </div>
 

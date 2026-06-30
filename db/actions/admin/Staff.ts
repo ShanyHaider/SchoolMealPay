@@ -8,6 +8,7 @@ import {
     canteenStaffAssignmentsTable,
     usersTable,
     staffInvitationsTable,
+    canteensTable,
 } from "@/drizzle/schema";
 import { eq } from "drizzle-orm";
 import { assertRole } from "@/lib/guards/serverGuards";
@@ -18,6 +19,8 @@ import {
 import { InviteStaffInput, inviteStaffSchema } from "@/lib/validations/canteen";
 import { clerkClient } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
+import { notify } from "@/lib/notification/notify";
+import { PushEvents } from "@/lib/notification/webpush";
 
 
 
@@ -104,10 +107,10 @@ export async function inviteStaffMember(input: InviteStaffInput, adminId: string
     try {
         clerkInvite = await clerk.invitations.createInvitation({
             emailAddress: email,
-            // redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL}/sign-up/accept-invitation`,
+            redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL}/sign-up/accept-invitation`,
             publicMetadata: { role: "canteen_staff" },
             notify: true,
-            ignoreExisting: true, // ← THE FIX: supersedes any existing invitation
+            ignoreExisting: true,
         });
     } catch (error: any) {
         const clerkCode = error?.errors?.[0]?.code;
@@ -207,67 +210,6 @@ export async function cancelStaffInvitation(invitationId: string) {
     revalidatePath("/school-admin/staff");
 }
 
-// db/actions/Admin.ts — replace disableStaffMember and add enableStaffMember
-
-// ─── disableStaffMember ────────────────────────────────────────────────────────
-// Sets isActive: false in DB (source of truth) + bans in Clerk (blocks login).
-
-
-// ─── enableStaffMember ─────────────────────────────────────────────────────────
-// Sets isActive: true in DB + unbans in Clerk (restores login).
-
-// db/actions/Admin.ts — replace disableStaffMember, add enableStaffMember
-// Uses revalidateStaffCache() to bust ALL relevant cache tags at once.
-
-export async function disableStaffMember(userId: string) {
-    await assertRole(["school_admin"]);
-
-    const user = await db.query.usersTable.findFirst({
-        where: eq(usersTable.id, userId),
-    });
-    if (!user) throw new Error("User not found");
-
-    await db
-        .update(usersTable)
-        .set({ isActive: false, updatedAt: new Date() })
-        .where(eq(usersTable.id, userId));
-
-    try {
-        const clerk = await clerkClient();
-        await clerk.users.banUser(user.clerkId);
-    } catch (err) {
-        console.error("[disableStaffMember] Clerk ban failed:", err);
-    }
-
-    revalidateStaffCache(userId, user.clerkId);
-}
-
-export async function enableStaffMember(userId: string) {
-    await assertRole(["school_admin"]);
-
-    const user = await db.query.usersTable.findFirst({
-        where: eq(usersTable.id, userId),
-    });
-    if (!user) throw new Error("User not found");
-
-    await db
-        .update(usersTable)
-        .set({ isActive: true, updatedAt: new Date() })
-        .where(eq(usersTable.id, userId));
-
-    try {
-        const clerk = await clerkClient();
-        await clerk.users.unbanUser(user.clerkId);
-    } catch (err) {
-        console.error("[enableStaffMember] Clerk unban failed:", err);
-    }
-
-    revalidateStaffCache(userId, user.clerkId);
-}
-
-
-
-
 // db/actions/Admin.ts — replace promoteToStaff and deleteStaffMember
 // Same fix: revalidateStaffCache() instead of revalidateUserCache(clerkId)
 
@@ -331,6 +273,144 @@ export async function deleteStaffMember(userId: string) {
     } catch (err) {
         console.error("[deleteStaffMember] Failed to sync Clerk metadata:", err);
     }
+
+    revalidateStaffCache(userId, user.clerkId);
+}
+
+export async function assignStaffToCanteen(
+    staffId: string,
+    canteenId: string,
+    assignedBy: string,
+) {
+    await assertRole(["school_admin"]);
+
+    const { canteenStaffAssignmentsTable } = await import("@/drizzle/schema");
+
+    const existing = await db.query.canteenStaffAssignmentsTable.findFirst({
+        where: eq(canteenStaffAssignmentsTable.staffId, staffId),
+    });
+    if (existing) {
+        await db
+            .delete(canteenStaffAssignmentsTable)
+            .where(eq(canteenStaffAssignmentsTable.staffId, staffId));
+        revalidateCanteenStaffCache(existing.canteenId, staffId);
+
+        // Notify staff they've been removed from their previous canteen
+        const oldCanteen = await db.query.canteensTable.findFirst({
+            where: eq(canteensTable.id, existing.canteenId),
+            columns: { name: true },
+        });
+        if (oldCanteen) {
+            notify({
+                userId: staffId,
+                type: "canteen_unassigned",
+                event: PushEvents.staff.unassigned(oldCanteen.name),
+            }).catch(console.error);
+        }
+    }
+
+    await db
+        .insert(canteenStaffAssignmentsTable)
+        .values({ staffId, canteenId, assignedBy });
+
+    revalidateCanteenStaffCache(canteenId, staffId);
+
+    // Notify staff of their new assignment
+    const canteen = await db.query.canteensTable.findFirst({
+        where: eq(canteensTable.id, canteenId),
+        columns: { name: true },
+    });
+    if (canteen) {
+        notify({
+            userId: staffId,
+            type: "canteen_assigned",
+            event: PushEvents.staff.assigned(canteen.name),
+        }).catch(console.error);
+    }
+}
+
+export async function removeStaffAssignment(staffId: string, canteenId: string) {
+    await assertRole(["school_admin"]);
+
+    const { canteenStaffAssignmentsTable } = await import("@/drizzle/schema");
+
+    await db
+        .delete(canteenStaffAssignmentsTable)
+        .where(eq(canteenStaffAssignmentsTable.staffId, staffId));
+
+    revalidateCanteenStaffCache(canteenId, staffId);
+
+    const canteen = await db.query.canteensTable.findFirst({
+        where: eq(canteensTable.id, canteenId),
+        columns: { name: true },
+    });
+    if (canteen) {
+        notify({
+            userId: staffId,
+            type: "canteen_unassigned",
+            event: PushEvents.staff.unassigned(canteen.name),
+        }).catch(console.error);
+    }
+}
+
+// ─── Disable / enable staff account ──────────────────────────────────────────
+
+export async function disableStaffMember(userId: string) {
+    await assertRole(["school_admin"]);
+
+    const user = await db.query.usersTable.findFirst({
+        where: eq(usersTable.id, userId),
+    });
+    if (!user) throw new Error("User not found");
+
+    await db
+        .update(usersTable)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(eq(usersTable.id, userId));
+
+    try {
+        const clerk = await clerkClient();
+        await clerk.users.banUser(user.clerkId);
+    } catch (err) {
+        console.error("[disableStaffMember] Clerk ban failed:", err);
+    }
+
+    // In-app only — push is pointless for a banned account
+    notify({
+        userId,
+        type: "account_disabled",
+        event: PushEvents.staff.accountDisabled(),
+        channels: ["in_app"],
+    }).catch(console.error);
+
+    revalidateStaffCache(userId, user.clerkId);
+}
+
+export async function enableStaffMember(userId: string) {
+    await assertRole(["school_admin"]);
+
+    const user = await db.query.usersTable.findFirst({
+        where: eq(usersTable.id, userId),
+    });
+    if (!user) throw new Error("User not found");
+
+    await db
+        .update(usersTable)
+        .set({ isActive: true, updatedAt: new Date() })
+        .where(eq(usersTable.id, userId));
+
+    try {
+        const clerk = await clerkClient();
+        await clerk.users.unbanUser(user.clerkId);
+    } catch (err) {
+        console.error("[enableStaffMember] Clerk unban failed:", err);
+    }
+
+    notify({
+        userId,
+        type: "account_enabled",
+        event: PushEvents.staff.accountEnabled(),
+    }).catch(console.error);
 
     revalidateStaffCache(userId, user.clerkId);
 }

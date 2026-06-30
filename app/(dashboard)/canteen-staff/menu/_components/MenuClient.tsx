@@ -128,7 +128,7 @@ export function MenuClient({
             weekEnd={weekEnd}
             isFetchingMenus={isFetchingMenus}
             onCanteenChange={handleCanteenChange}
-            onDailyMenusChange={setDailyMenus}
+            onDailyMenusChange={(updater) => setDailyMenus(updater)}
             onError={(msg) => toast(msg, "error")}
           />
         )}

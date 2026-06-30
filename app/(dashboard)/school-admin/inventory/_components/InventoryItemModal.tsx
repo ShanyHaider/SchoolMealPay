@@ -14,7 +14,7 @@ import {
     type EditInventoryValues,
     type InventoryItem,
     type UnitType,
-} from "./types";
+} from "../../../../../types/inventoryTypes";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
