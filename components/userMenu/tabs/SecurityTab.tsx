@@ -14,6 +14,7 @@ import {
   Lock,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { deleteOwnAccountAction } from "@/features/users/actions";
 
 type StatusMsg = { type: "success" | "error"; text: string } | null;
 
@@ -98,10 +99,9 @@ export function SecurityTab() {
     }
     setLoading("delete");
     try {
-      const res = await fetch("/api/user/delete", { method: "DELETE" });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error ?? "Deletion failed");
+      const result = await deleteOwnAccountAction();
+      if (!result.success) {
+        throw new Error(result.error ?? "Deletion failed");
       }
       await signOut({ redirectUrl: "/" });
     } catch (err: unknown) {

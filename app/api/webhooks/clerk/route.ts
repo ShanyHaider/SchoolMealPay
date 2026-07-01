@@ -26,27 +26,40 @@ export async function POST(request: NextRequest) {
     const event = await verifyWebhook(request);
     const clerkData = event.data as any;
 
+    // ── DEBUG: log every event Clerk sends us, in full ─────────────────────
+    console.log(
+      `[Clerk Webhook] type=${event.type} clerkId=${clerkData?.id} primaryEmailId=${clerkData?.primary_email_address_id}`,
+    );
+    console.log(
+      `[Clerk Webhook] email_addresses=${JSON.stringify(clerkData?.email_addresses)}`,
+    );
+
     switch (event.type) {
       case "user.created":
       case "user.updated": {
-
-
         const email = clerkData.email_addresses?.find(
           (e: any) => e.id === clerkData.primary_email_address_id,
         )?.email_address;
 
         if (!email) {
+          console.warn(
+            `[Clerk Webhook] No primary email found for clerkId=${clerkData?.id}, payload=${JSON.stringify(clerkData?.email_addresses)}`,
+          );
           return new Response("No primary email found", { status: 400 });
         }
 
         let invitation = null;
-        let resolvedRole: "school_admin" | "canteen_staff" | "parent" = "parent";
+        let resolvedRole: "school_admin" | "canteen_staff" | "parent" =
+          "parent";
 
         if (event.type === "user.created") {
           const bootstrapEmail = env.BOOTSTRAP_ADMIN_EMAIL;
 
           if (bootstrapEmail && email === bootstrapEmail) {
             resolvedRole = "school_admin";
+            console.log(
+              `[Clerk Webhook] ${email} resolved as school_admin via BOOTSTRAP_ADMIN_EMAIL`,
+            );
           } else {
             invitation = await db.query.staffInvitationsTable.findFirst({
               where: and(
@@ -56,7 +69,16 @@ export async function POST(request: NextRequest) {
             });
 
             if (invitation) {
-              resolvedRole = invitation.role as "canteen_staff" | "school_admin";
+              resolvedRole = invitation.role as
+                | "canteen_staff"
+                | "school_admin";
+              console.log(
+                `[Clerk Webhook] ${email} resolved as ${resolvedRole} via invitation id=${invitation.id}`,
+              );
+            } else {
+              console.log(
+                `[Clerk Webhook] ${email} resolved as parent (no invitation found)`,
+              );
             }
           }
         }
@@ -75,10 +97,18 @@ export async function POST(request: NextRequest) {
           updatedAt: new Date(clerkData.updated_at || Date.now()),
         };
 
+        console.log(
+          `[Clerk Webhook] upserting user: ${JSON.stringify(userData)}`,
+        );
+
         let dbUserId: string | undefined;
 
         await db.transaction(async (tx) => {
           const dbUser = await upsertUser(userData);
+
+          console.log(
+            `[Clerk Webhook] upsertUser result: ${JSON.stringify(dbUser)}`,
+          );
 
           if (!dbUser?.id) return;
 
@@ -90,13 +120,17 @@ export async function POST(request: NextRequest) {
             .onConflictDoNothing();
 
           if (event.type === "user.created" && invitation) {
-            if (invitation.role === "canteen_staff" && invitation.canteenId && invitation.invitedBy) {
+            if (
+              invitation.role === "canteen_staff" &&
+              invitation.canteenId &&
+              invitation.invitedBy
+            ) {
               await tx
                 .insert(canteenStaffAssignmentsTable)
                 .values({
                   staffId: dbUser.id,
                   canteenId: invitation.canteenId,
-                  assignedBy: invitation.invitedBy, // now narrowed to string
+                  assignedBy: invitation.invitedBy,
                 })
                 .onConflictDoNothing();
             }
@@ -108,10 +142,6 @@ export async function POST(request: NextRequest) {
           }
         });
 
-        // ── Bust the cache AFTER the transaction commits ───────────────────
-        // Without this, getUser(clerkId) serves the stale null that was cached
-        // before this user existed, causing the canteen-staff layout guard to
-        // redirect → / → /dashboard → loop.
         bustUserCache(clerkData.id, dbUserId);
 
         if (event.type === "user.created" && dbUserId && email) {
@@ -129,22 +159,36 @@ export async function POST(request: NextRequest) {
               .set({ convertedUserId: dbUserId })
               .where(eq(contactSubmissionsTable.email, email)),
           ]);
-
-          break;
         }
+
+        // FIX: this break now always runs for both user.created and
+        // user.updated, regardless of the inner `if`. Previously it was
+        // nested inside that if-block, so user.updated events (which take
+        // the false branch) fell through into the user.deleted case below
+        // and deactivated the user on every password reset / profile update.
+        break;
       }
 
       case "user.deleted": {
+        // ── DEBUG: this is the only place isActive gets set to false ────────
+        console.log(
+          `[Clerk Webhook] user.deleted FIRED for clerkId=${clerkData?.id}. Full payload: ${JSON.stringify(clerkData, null, 2)}`,
+        );
+
         if (clerkData.id == null) {
+          console.warn(`[Clerk Webhook] user.deleted with no clerkData.id`);
           return new Response("No user ID provided", { status: 400 });
         }
         await deleteUser(clerkData.id);
-        // Bust cache on delete too so stale active-user data isn't served
+        console.log(
+          `[Clerk Webhook] deleteUser executed for clerkId=${clerkData.id} -> isActive=false`,
+        );
         bustUserCache(clerkData.id);
         break;
       }
 
       default:
+        console.log(`[Clerk Webhook] Unhandled event type: ${event.type}`);
         break;
     }
   } catch (error) {

@@ -29,14 +29,19 @@ function higherRole(a: UserRole, b: UserRole): UserRole {
 }
 
 export async function upsertUser(user: UserInsert) {
-  // ── Check by clerkId first (most reliable — never changes) ───────────────
+  console.log(
+    `[upsertUser] called for clerkId=${user.clerkId} email=${user.email}`,
+  );
+
   const existingByClerkId = await db.query.usersTable.findFirst({
     where: eq(usersTable.clerkId, user.clerkId),
   });
 
   if (existingByClerkId) {
-    // UPDATE — NEVER touch role. Profile fields only.
-    // Role changes are handled exclusively by assertRole-guarded server actions.
+    console.log(
+      `[upsertUser] BRANCH=update-by-clerkId existing.id=${existingByClerkId.id} existing.email=${existingByClerkId.email} existing.role=${existingByClerkId.role} existing.isActive=${existingByClerkId.isActive}`,
+    );
+
     const [updated] = await db
       .update(usersTable)
       .set({
@@ -45,25 +50,35 @@ export async function upsertUser(user: UserInsert) {
         phone: user.phone,
         isActive: true,
         updatedAt: new Date(),
-        // role intentionally omitted — see comment above
       })
       .where(eq(usersTable.clerkId, user.clerkId))
       .returning({ id: usersTable.id, role: usersTable.role });
 
+    console.log(
+      `[upsertUser] update-by-clerkId result=${JSON.stringify(updated)}`,
+    );
     return updated;
   }
 
-  // ── New clerkId — check for email collision ───────────────────────────────
-  // Rare but possible if someone used a different OAuth provider previously.
   const existingByEmail = await db.query.usersTable.findFirst({
     where: eq(usersTable.email, user.email),
   });
 
   if (existingByEmail) {
-    // Link the Clerk ID to the existing record.
-    // Preserve the existing role — we may be landing here from a user.updated
-    // webhook that carries role:"parent" in userData while the DB already has
-    // role:"canteen_staff" (set by promoteToStaff). Never downgrade.
+    // ── DEBUG: this is the dangerous branch — it REASSIGNS clerkId ──────────
+    // If existingByEmail.clerkId !== user.clerkId, we're stealing the row
+    // away from whatever clerkId owned it before. That orphaned old clerkId
+    // can later get a real or phantom user.deleted event fired against it.
+    console.warn(
+      `[upsertUser] BRANCH=email-collision! incoming.clerkId=${user.clerkId} incoming.email=${user.email} | existing.id=${existingByEmail.id} existing.clerkId=${existingByEmail.clerkId} existing.role=${existingByEmail.role} existing.isActive=${existingByEmail.isActive}`,
+    );
+
+    if (existingByEmail.clerkId !== user.clerkId) {
+      console.warn(
+        `[upsertUser] !!! REASSIGNING row id=${existingByEmail.id} from clerkId=${existingByEmail.clerkId} to clerkId=${user.clerkId} !!!`,
+      );
+    }
+
     const [updated] = await db
       .update(usersTable)
       .set({
@@ -73,29 +88,45 @@ export async function upsertUser(user: UserInsert) {
         phone: user.phone,
         isActive: true,
         updatedAt: new Date(),
-        // role intentionally omitted — preserve whatever is in the DB
       })
       .where(eq(usersTable.email, user.email))
       .returning({ id: usersTable.id, role: usersTable.role });
 
+    console.log(
+      `[upsertUser] email-collision result=${JSON.stringify(updated)}`,
+    );
     return updated;
   }
 
-  // ── Brand new user — INSERT with the role the webhook resolved ────────────
-  // The webhook resolves role:"canteen_staff" when an invitation is found,
-  // otherwise "parent". school_admin is only ever set manually.
+  console.log(
+    `[upsertUser] BRANCH=insert-new for clerkId=${user.clerkId} email=${user.email}`,
+  );
+
   const [inserted] = await db
     .insert(usersTable)
     .values(user)
     .returning({ id: usersTable.id, role: usersTable.role });
 
+  console.log(`[upsertUser] insert-new result=${JSON.stringify(inserted)}`);
   return inserted;
 }
 
 export async function deleteUser(clerkId: string) {
-  await db
+  // ── DEBUG: log every call site that deactivates a user ────────────────────
+  console.warn(
+    `[deleteUser] DEACTIVATING clerkId=${clerkId} -- stack trace follows`,
+  );
+  console.trace();
+
+  const [result] = await db
     .update(usersTable)
     .set({ isActive: false, updatedAt: new Date() })
-    .where(eq(usersTable.clerkId, clerkId));
-}
+    .where(eq(usersTable.clerkId, clerkId))
+    .returning({
+      id: usersTable.id,
+      email: usersTable.email,
+      clerkId: usersTable.clerkId,
+    });
 
+  console.warn(`[deleteUser] result=${JSON.stringify(result)}`);
+}

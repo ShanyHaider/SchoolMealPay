@@ -1,67 +1,101 @@
 // lib/guards/pageGuards.ts
 //
 // Server-only guards for page.tsx files.
-// Call at the very top of any page that requires a subscription feature —
-// before any data fetching, so no DB queries run for unauthorized requests.
-//
-// Usage:
-//   import { requireSchoolFeature } from "@/lib/guards/pageGuards";
-//
-//   export default async function ReportsPage() {
-//     await requireSchoolFeature("hasAdvancedAnalytics");
-//     // only reached if premium + active
-//   }
 
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
-import { getSchoolSubscription, getParentProSubscription } from "@/db/queries/Subscription";
+import {
+  getSchoolSubscription,
+  getParentProSubscription,
+} from "@/db/queries/Subscription";
 import { getUserFromDb } from "@/features/users/queries";
 
-// ─── School premium feature guard ─────────────────────────────────────────────
-//
-// Redirects to /school-admin/billing with a reason param so the billing page
-// can show a contextual message ("Upgrade to access Advanced Reports").
-// Accepts "trialing" as active — trial users get full premium access.
-
-export async function requireSchoolFeature(
-    feature: "hasAdvancedAnalytics" | "hasAiNutrition" | "hasPrioritySupport",
-) {
-    const sub = await getSchoolSubscription();
-
-    const isPremiumActive =
-        sub?.tier === "premium_school" &&
-        (sub.status === "active" || sub.status === "trialing");
-
-    if (!isPremiumActive) {
-        redirect(`/school-admin/billing?reason=${feature}`);
-    }
+// Thrown when a guard can't even determine subscription state (e.g. DB
+// timeout) — distinct from a normal "not entitled" redirect so callers
+// and error.tsx can tell the difference between "no access" and
+// "we don't know, something's wrong."
+export class GuardInfraError extends Error {
+  constructor(
+    message: string,
+    public cause?: unknown,
+  ) {
+    super(message);
+    this.name = "GuardInfraError";
+  }
 }
 
-// ─── Parent Pro feature guard ──────────────────────────────────────────────────
-//
-// Redirects to /parent/settings?tab=billing with a reason param.
-// Resolves the parent's DB id from the Clerk session automatically —
-// no need to pass it in from the page.
+export async function requireSchoolFeature(
+  feature: "hasAdvancedAnalytics" | "hasAiNutrition" | "hasPrioritySupport",
+) {
+  let sub;
+  try {
+    sub = await getSchoolSubscription();
+  } catch (err) {
+    console.error(
+      `[requireSchoolFeature] subscription lookup failed for feature=${feature}`,
+      err,
+    );
+    throw new GuardInfraError(
+      "Couldn't verify your subscription status. Please try again.",
+      err,
+    );
+  }
+
+  const isPremiumActive =
+    sub?.tier === "premium_school" &&
+    (sub.status === "active" || sub.status === "trialing");
+
+  if (!isPremiumActive) {
+    redirect(`/school-admin/billing?reason=${feature}`);
+  }
+}
 
 export async function requireParentProFeature(
-    feature:
-        | "hasNutritionDashboard"
-        | "hasAiMealPlanning"
-        | "hasHealthTrends"
-        | "hasPrioritySupport",
+  feature:
+    | "hasNutritionDashboard"
+    | "hasAiMealPlanning"
+    | "hasHealthTrends"
+    | "hasPrioritySupport",
 ) {
-    const { userId: clerkId } = await auth();
-    if (!clerkId) redirect("/sign-in");
+  const { userId: clerkId } = await auth();
+  if (!clerkId) redirect("/sign-in");
 
-    const dbUser = await getUserFromDb(clerkId);
-    if (!dbUser) redirect("/sign-in");
+  let dbUser;
+  try {
+    dbUser = await getUserFromDb(clerkId);
+  } catch (err) {
+    console.error(`[requireParentProFeature] user lookup failed`, err);
+    throw new GuardInfraError(
+      "Couldn't load your account. Please try again.",
+      err,
+    );
+  }
+  if (!dbUser) redirect("/sign-in");
 
-    const sub = await getParentProSubscription(dbUser.id);
+  // Surface deactivation distinctly rather than silently bouncing to billing —
+  // a deactivated account being routed to "upgrade your plan" is confusing
+  // and was exactly the kind of symptom that masked the real bug earlier.
+  if (!dbUser.isActive) {
+    redirect("/account-error?reason=deactivated");
+  }
 
-    const isProActive =
-        sub?.status === "active" || sub?.status === "trialing";
+  let sub;
+  try {
+    sub = await getParentProSubscription(dbUser.id);
+  } catch (err) {
+    console.error(
+      `[requireParentProFeature] subscription lookup failed for feature=${feature}`,
+      err,
+    );
+    throw new GuardInfraError(
+      "Couldn't verify your subscription status. Please try again.",
+      err,
+    );
+  }
 
-    if (!isProActive) {
-        redirect(`/parent/settings?tab=billing&reason=${feature}`);
-    }
+  const isProActive = sub?.status === "active" || sub?.status === "trialing";
+
+  if (!isProActive) {
+    redirect(`/parent/settings?tab=billing&reason=${feature}`);
+  }
 }

@@ -100,13 +100,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
+  // ── DEBUG: log every email event Clerk fires ──────────────────────────────
+  console.log(
+    `[clerk-email webhook] type=${event.type} slug=${event.data?.slug} to=${event.data?.to_email_address} emailId=${event.data?.id}`,
+  );
+
   if (event.type !== "email.created") {
     return NextResponse.json({ received: true });
   }
 
   const emailId = event.data.id;
 
-  // ── Idempotency check — Clerk can fire email.created more than once ──────
   try {
     const alreadyProcessed = await db.query.processedClerkEmailsTable.findFirst(
       {
@@ -115,18 +119,17 @@ export async function POST(request: NextRequest) {
     );
 
     if (alreadyProcessed) {
+      console.log(
+        `[clerk-email webhook] emailId=${emailId} already processed, skipping`,
+      );
       return NextResponse.json({ received: true, skipped: true });
     }
 
-    // Reserve the slot immediately to close the race window between
-    // two near-simultaneous webhook deliveries.
     await db.insert(processedClerkEmailsTable).values({
       id: emailId,
       slug: event.data.slug,
     });
   } catch (err) {
-    // Unique constraint violation means another request beat us to it —
-    // safe to treat as already processed.
     console.warn(
       "[clerk-email webhook] Idempotency insert failed, likely duplicate:",
       err,
@@ -135,6 +138,10 @@ export async function POST(request: NextRequest) {
   }
 
   const { slug, to_email_address, body, data } = event.data;
+
+  console.log(
+    `[clerk-email webhook] dispatching slug=${slug} to=${to_email_address} otp=${data?.otp_code ?? "(extracted from body)"}`,
+  );
 
   try {
     switch (slug) {
@@ -149,6 +156,9 @@ export async function POST(request: NextRequest) {
           "Your SchoolMealPay verification code",
           <VerificationCodeEmail code={code} purpose="verify your email" />,
         );
+        console.log(
+          `[clerk-email webhook] sent verification_code to ${to_email_address}`,
+        );
         break;
       }
 
@@ -162,6 +172,9 @@ export async function POST(request: NextRequest) {
           to_email_address,
           "Reset your SchoolMealPay password",
           <ResetPasswordEmail code={code} />,
+        );
+        console.log(
+          `[clerk-email webhook] sent reset_password_code to ${to_email_address}`,
         );
         break;
       }
@@ -183,10 +196,14 @@ export async function POST(request: NextRequest) {
             invitedByName={data?.inviter_name}
           />,
         );
+        console.log(
+          `[clerk-email webhook] sent invitation to ${to_email_address}`,
+        );
         break;
       }
 
       default:
+        console.log(`[clerk-email webhook] unhandled slug=${slug}`);
         break;
     }
   } catch (err) {
