@@ -1,4 +1,4 @@
-import { currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { getChildrenByParent } from "@/db/queries/Students";
 import { getOrdersByStudent } from "@/db/queries/Orders";
@@ -108,9 +108,9 @@ const FALLBACK_TARGETS = {
 
 export default async function NutritionPage() {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) redirect("/sign-in");
-    const dbUser = await getUserFromDb(clerkUser.id);
+    const { userId } = await auth();
+    if (!userId) redirect("/sign-in");
+    const dbUser = await getUserFromDb(userId);
     if (!dbUser) redirect("/sign-in");
 
     const [children, dbTarget] = await Promise.all([

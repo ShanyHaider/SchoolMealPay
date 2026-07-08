@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 import { getAllCanteens } from "@/db/queries/Admin";
 import { getAllMenuItemsCached, getWeeklyMenu } from "@/db/queries/Menu"; // adjust path to wherever your cached queries live
-import { MenuClient } from "../../canteen-staff/menu/_components/MenuClient";
+import { MenuClient } from "./_components/MenuClient";
 
 function getWeekBounds(now: Date) {
   const fmt = (d: Date) =>
@@ -53,6 +53,7 @@ export default async function MenuPage() {
         weekStart={start}
         weekEnd={end}
         defaultCanteenId={firstCanteenId}
+        canManageCatalogue={true}
       />
     </div>
   );

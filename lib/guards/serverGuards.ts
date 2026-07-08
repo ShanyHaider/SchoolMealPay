@@ -1,6 +1,6 @@
 import "server-only";
 
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { getUserFromDb } from "@/features/users/queries";
 import { getParentProSubscription, getSchoolSubscription } from "@/db/queries/Subscription";
 import { db } from "@/drizzle/db";

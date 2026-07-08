@@ -1,4 +1,4 @@
-import { currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { redirect, notFound } from "next/navigation";
 import { getOrderById } from "@/db/queries/Orders";
 import { getUserFromDb } from "@/features/users/queries";
@@ -47,9 +47,9 @@ export default async function OrderDetailPage({
 }) {
   const { orderId } = await params;
 
-  const clerkUser = await currentUser();
-  if (!clerkUser) redirect("/sign-in");
-  const dbUser = await getUserFromDb(clerkUser.id);
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
+  const dbUser = await getUserFromDb(userId);
   if (!dbUser) redirect("/sign-in");
 
   const order = await getOrderById(orderId);

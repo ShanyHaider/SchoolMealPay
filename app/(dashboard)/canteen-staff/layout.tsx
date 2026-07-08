@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { getUserFromDb } from "@/features/users/queries";
 import { getStaffCanteen } from "@/db/queries/Staff";
@@ -11,10 +11,14 @@ import { connection } from "next/server";
 async function CanteenStaffGuard({ children }: { children: React.ReactNode }) {
   await connection();
 
-  const clerkUser = await currentUser();
-  if (!clerkUser) redirect("/sign-in");
+  // auth() reads userId from the JWT that Clerk middleware already validated
+  // and embedded in the request — no outbound network call, cannot fail on
+  // cold-start. currentUser() (which we used before) makes a real HTTPS call
+  // to Clerk's API and was throwing ClerkAPIResponseError on cold-start.
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
 
-  const dbUser = await getUserFromDb(clerkUser.id);
+  const dbUser = await getUserFromDb(userId);
 
   if (!dbUser || dbUser.role !== "canteen_staff") {
     redirect("/");

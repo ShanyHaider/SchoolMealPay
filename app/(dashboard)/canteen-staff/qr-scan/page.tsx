@@ -1,4 +1,4 @@
-import { currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { getStaffCanteen, getTodayOrders } from "@/db/queries/Staff";
 import { QrScannerClient } from "./_components/QrScannerClient";
@@ -6,9 +6,9 @@ import { getUserFromDb } from "@/features/users/queries";
 import { TODAY } from "../../../../types/canteenMenuTypes";
 
 export default async function QrScanPage() {
-  const clerkUser = await currentUser();
-  if (!clerkUser) redirect("/sign-in");
-  const dbUser = await getUserFromDb(clerkUser.id);
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
+  const dbUser = await getUserFromDb(userId);
   if (!dbUser) redirect("/sign-in");
 
   const canteen = await getStaffCanteen(dbUser.id);

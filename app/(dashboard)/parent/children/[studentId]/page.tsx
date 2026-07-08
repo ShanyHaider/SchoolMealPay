@@ -1,4 +1,4 @@
-import { currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { redirect, notFound } from "next/navigation";
 import { getStudentById } from "@/db/queries/Students";
 import { getBlockedItems } from "@/db/queries/Notifications";
@@ -13,9 +13,9 @@ export default async function ChildDetailPage({
 }: {
   params: Promise<{ studentId: string }>;
 }) {
-  const clerkUser = await currentUser();
-  if (!clerkUser) redirect("/sign-in");
-  const dbUser = await getUserFromDb(clerkUser.id);
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
+  const dbUser = await getUserFromDb(userId);
   if (!dbUser) redirect("/sign-in");
 
   const { studentId } = await params;

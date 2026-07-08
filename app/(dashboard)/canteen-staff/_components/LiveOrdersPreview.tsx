@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
@@ -12,8 +14,8 @@ const STATUS_META: Record<
     color: "#3b82f6",
   },
   ready: { label: "Ready", bg: "rgba(139,92,246,0.15)", color: "#8b5cf6" },
-  collected: {
-    label: "Collected",
+  delivered: {
+    label: "Delivered",
     bg: "rgba(34,197,94,0.15)",
     color: "#22c55e",
   },
@@ -122,7 +124,7 @@ export function LiveOrdersPreview({ orders }: { orders: any[] }) {
               >
                 {/* Avatar */}
                 <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                   style={{
                     background: avatarColor.bg,
                     color: avatarColor.color,
@@ -142,7 +144,7 @@ export function LiveOrdersPreview({ orders }: { orders: any[] }) {
                     </p>
                     {hasAllergens && (
                       <span
-                        className="px-1.5 py-0.5 rounded text-[10px] font-semibold flex-shrink-0"
+                        className="px-1.5 py-0.5 rounded text-[10px] font-semibold shrink-0"
                         style={{
                           background: "rgba(239,68,68,0.12)",
                           color: "#ef4444",
@@ -161,7 +163,7 @@ export function LiveOrdersPreview({ orders }: { orders: any[] }) {
                 </div>
 
                 {/* Right: status + time */}
-                <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                <div className="flex flex-col items-end gap-1 shrink-0">
                   <span
                     className="px-2.5 py-1 rounded-full text-[11px] font-semibold"
                     style={{ background: meta.bg, color: meta.color }}

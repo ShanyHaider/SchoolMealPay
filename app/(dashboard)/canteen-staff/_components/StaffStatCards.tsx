@@ -55,7 +55,13 @@ const CARDS = [
   },
 ] as const;
 
-function AnimatedNumber({ value, delay = 0 }: { value: number; delay?: number }) {
+function AnimatedNumber({
+  value,
+  delay = 0,
+}: {
+  value: number;
+  delay?: number;
+}) {
   const ref = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
@@ -85,7 +91,7 @@ export function StaffStatCards({ stats }: { stats: Stats }) {
       {CARDS.map(({ key, label, icon: Icon, bg, color }, i) => (
         <div
           key={key}
-          className="rounded-2xl border p-4 flex flex-col gap-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--border-card-hover,#3a3a48)] cursor-default group"
+          className="rounded-2xl border p-4 flex flex-col gap-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-(--border-card-hover,#3a3a48) cursor-default group"
           style={{
             background: "var(--bg-card)",
             borderColor: "var(--border-card)",
@@ -93,7 +99,7 @@ export function StaffStatCards({ stats }: { stats: Stats }) {
           }}
         >
           <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform duration-200 group-hover:scale-110"
+            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-110"
             style={{ background: bg }}
           >
             <Icon size={17} style={{ color }} />

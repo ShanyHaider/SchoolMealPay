@@ -80,7 +80,7 @@ export function StaffSidebar({
           </SheetTrigger>
           <SheetContent
             side="left"
-            className="p-0 w-[280px] bg-(--bg-primary) border-r border-(--border-primary)"
+            className="p-0 w-70 bg-(--bg-primary) border-r border-(--border-primary)"
           >
             <div className="sr-only">
               <SheetTitle>Canteen Operations Menu</SheetTitle>
@@ -120,7 +120,7 @@ export function StaffSidebar({
       <div
         className={cn(
           "hidden lg:block transition-[width] duration-300 ease-in-out shrink-0",
-          isCollapsed ? "w-[82px]" : "w-[270px]",
+          isCollapsed ? "w-20.5" : "w-67.5",
         )}
       />
     </TooltipProvider>
@@ -172,7 +172,7 @@ function SidebarInner({
       {/* Header */}
       <div
         className={cn(
-          "flex items-center mb-6 px-3 transition-all duration-300 min-h-[44px]",
+          "flex items-center mb-6 px-3 transition-all duration-300 min-h-11",
           isCollapsed ? "justify-center" : "justify-between",
         )}
       >

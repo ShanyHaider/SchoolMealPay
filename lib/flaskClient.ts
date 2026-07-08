@@ -144,3 +144,49 @@ export async function fetchAdminNutritionChat(
         schoolName, trends, currentMenuItems, history, newMessage,
     });
 }
+
+// ── Demand forecast ─────────────────────────────────────────────────────────
+
+export type ForecastPrediction = {
+    date: string;
+    weekday: string;
+    predictedQuantity: number;
+    confidence: "high" | "medium" | "low";
+};
+
+export type ItemForecast = {
+    menuItemId: string;
+    menuItemName: string;
+    predictions: ForecastPrediction[];
+    trend: "increasing" | "stable" | "decreasing";
+};
+
+export async function fetchDemandForecast(
+    orders: { date: string; menuItemId: string; menuItemName: string; quantity: number }[],
+    forecastDays = 7,
+): Promise<{ forecasts: ItemForecast[] }> {
+    return post("/api/admin/demand-forecast", { orders, forecastDays });
+}
+
+// ── Feedback sentiment ──────────────────────────────────────────────────────
+
+export type SentimentResult = {
+    id: string;
+    sentiment: "positive" | "neutral" | "negative";
+    score: number;
+    flagged: boolean;
+};
+
+export type SentimentSummary = {
+    positive: number;
+    neutral: number;
+    negative: number;
+    overallScore: number;
+    topNegativeThemes: string[];
+};
+
+export async function fetchFeedbackSentiment(
+    feedback: { id: string; comment: string; rating: number }[],
+): Promise<{ results: SentimentResult[]; summary: SentimentSummary }> {
+    return post("/api/admin/feedback-sentiment", { feedback });
+}

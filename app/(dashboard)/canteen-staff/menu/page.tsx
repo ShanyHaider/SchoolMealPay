@@ -1,13 +1,13 @@
 import { connection } from "next/server";
 import { getAllCanteens } from "@/db/queries/Admin";
 import { getAllMenuItemsCached, getWeeklyMenu } from "@/db/queries/Menu"; // adjust path to wherever your cached queries live
-import { MenuClient } from "../../canteen-staff/menu/_components/MenuClient";
+import { StaffMenuClient } from "./_components/StaffMenuClient";
 
 function getWeekBounds(now: Date) {
   const fmt = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-  const start = fmt(now); // today
+  const start = fmt(now);
   const end = new Date(now);
   end.setDate(now.getDate() + 6);
 
@@ -15,8 +15,6 @@ function getWeekBounds(now: Date) {
 }
 
 export default async function StaffMenuPage() {
-  // Opt into dynamic rendering — required before calling new Date()
-  // in a Server Component under Next.js 15 PPR.
   await connection();
 
   const now = new Date();
@@ -27,11 +25,10 @@ export default async function StaffMenuPage() {
 
   const [menuItems, dailyMenus] = await Promise.all([
     getAllMenuItemsCached(),
-    firstCanteenId
-      ? getWeeklyMenu(firstCanteenId, start, end)
+    firstCanteenId ?
+      getWeeklyMenu(firstCanteenId, start, end)
       : Promise.resolve([]),
   ]);
-
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -43,10 +40,10 @@ export default async function StaffMenuPage() {
           Menu Management
         </h1>
         <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-          Manage your food catalogue and schedule daily menus for each canteen.
+          View the food catalogue and schedule daily menus for each canteen.
         </p>
       </div>
-      <MenuClient
+      <StaffMenuClient
         menuItems={menuItems}
         dailyMenus={dailyMenus}
         canteens={canteens}

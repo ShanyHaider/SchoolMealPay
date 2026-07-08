@@ -3,7 +3,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useClerk } from "@clerk/nextjs";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
@@ -29,6 +28,7 @@ import {
   X,
   User as UserIcon,
   ShieldCheck,
+  TrendingUp,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 
@@ -111,6 +111,13 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     requiredFeature: "hasAiNutrition",
     premium: true,
   },
+  {
+    href: "/school-admin/feedback-insights",
+    label: "Feedback & Demand",
+    icon: TrendingUp,
+    requiredFeature: "hasAiNutrition",
+    premium: true,
+  },
   { href: "/school-admin/profile", label: "School Profile", icon: Building2 },
 ];
 
@@ -143,7 +150,7 @@ export function SchoolAdminSidebar({
           </SheetTrigger>
           <SheetContent
             side="left"
-            className="p-0 w-[280px] bg-(--bg-primary) border-r border-(--border-primary)"
+            className="p-0 w-70 bg-(--bg-primary) border-r border-(--border-primary)"
           >
             <div className="sr-only">
               <SheetTitle>Admin Navigation Menu</SheetTitle>
@@ -184,7 +191,7 @@ export function SchoolAdminSidebar({
       <div
         className={cn(
           "hidden lg:block transition-[width] duration-300 ease-in-out shrink-0",
-          isCollapsed ? "w-[82px]" : "w-[270px]",
+          isCollapsed ? "w-20.5" : "w-67.5",
         )}
       />
     </TooltipProvider>
@@ -223,7 +230,7 @@ function SettingsModal({
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 isolate">
+        <div className="fixed inset-0 z-9999 flex items-center justify-center p-2 sm:p-4 isolate">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -235,7 +242,7 @@ function SettingsModal({
             initial={{ opacity: 0, scale: 0.98, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: 10 }}
-            className="relative flex flex-col md:flex-row h-full max-h-[90vh] md:h-[620px] w-full max-w-4xl overflow-hidden rounded-3xl border border-zinc-200/80 bg-white dark:border-zinc-800/80 dark:bg-zinc-950 text-zinc-800 dark:text-zinc-200 shadow-2xl"
+            className="relative flex flex-col md:flex-row h-full max-h-[90vh] md:h-155 w-full max-w-4xl overflow-hidden rounded-3xl border border-zinc-200/80 bg-white dark:border-zinc-800/80 dark:bg-zinc-950 text-zinc-800 dark:text-zinc-200 shadow-2xl"
           >
             {/* Sidebar nav */}
             <div className="w-full md:w-56 border-b md:border-b-0 md:border-r border-zinc-100 bg-zinc-50/50 dark:border-zinc-900 dark:bg-zinc-950/40 shrink-0 flex flex-col">
@@ -329,7 +336,7 @@ function AdminSidebarInner({
       {/* Header */}
       <div
         className={cn(
-          "flex items-center mb-6 px-3 transition-all duration-300 min-h-[44px]",
+          "flex items-center mb-6 px-3 transition-all duration-300 min-h-11",
           isCollapsed ? "justify-center" : "justify-between",
         )}
       >

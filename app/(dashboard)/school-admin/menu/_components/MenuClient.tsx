@@ -5,10 +5,15 @@ import { Plus } from "lucide-react";
 import { getWeeklyMenuAction } from "@/db/actions/admin/getWeeklyMenuAction";
 import { useToast } from "@/components/useToast";
 import { ToastContainer } from "@/components/useToast";
-import { CatalogueTab } from "../../../school-admin/menu/_components/CatalogueTab";
-import { ScheduleTab } from "../../../school-admin/menu/_components/ScheduleTab";
-import { MenuItemModal } from "../../../school-admin/menu/_components/MenuItemModal";
-import type { MenuItem, DailyMenu, Canteen } from "../../../../../types/menuTypes";
+
+import type {
+  MenuItem,
+  DailyMenu,
+  Canteen,
+} from "@/types/menuTypes";
+import { CatalogueTab } from "./CatalogueTab";
+import { MenuItemModal } from "./MenuItemModal";
+import { ScheduleTab } from "./ScheduleTab";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -19,6 +24,7 @@ interface MenuClientProps {
   weekStart: string;
   weekEnd: string;
   defaultCanteenId: string;
+  canManageCatalogue: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -30,6 +36,7 @@ export function MenuClient({
   weekStart,
   weekEnd,
   defaultCanteenId,
+  canManageCatalogue,
 }: MenuClientProps) {
   const { toasts, toast, dismiss } = useToast();
 
@@ -74,18 +81,22 @@ export function MenuClient({
                 onClick={() => setTab(t)}
                 className="px-3 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap"
                 style={{
-                  background: tab === t ? "var(--bg-pill-active)" : "transparent",
-                  color: tab === t ? "var(--text-primary)" : "var(--text-secondary)",
+                  background:
+                    tab === t ? "var(--bg-pill-active)" : "transparent",
+                  color:
+                    tab === t ? "var(--text-primary)" : "var(--text-secondary)",
                   boxShadow: tab === t ? "var(--shadow-pill)" : undefined,
                 }}
               >
                 {/* Shorten label on small screens */}
                 <span className="sm:hidden">
-                  {t === "catalogue" ? `Items (${menuItems.length})` : "Schedule"}
+                  {t === "catalogue" ?
+                    `Items (${menuItems.length})`
+                    : "Schedule"}
                 </span>
                 <span className="hidden sm:inline">
-                  {t === "catalogue"
-                    ? `Catalogue (${menuItems.length})`
+                  {t === "catalogue" ?
+                    `Catalogue (${menuItems.length})`
                     : "Weekly Schedule"}
                 </span>
               </button>
@@ -111,15 +122,14 @@ export function MenuClient({
         </div>
 
         {/* ── Tab content ── */}
-        {tab === "catalogue" ? (
+        {tab === "catalogue" ?
           <CatalogueTab
             menuItems={menuItems}
             canteenId={activeCanteenId}
             onSuccess={(msg) => toast(msg, "success")}
             onError={(msg) => toast(msg, "error")}
           />
-        ) : (
-          <ScheduleTab
+          : <ScheduleTab
             menuItems={menuItems}
             dailyMenus={dailyMenus}
             canteens={canteens}
@@ -131,18 +141,19 @@ export function MenuClient({
             onDailyMenusChange={(updater) => setDailyMenus(updater)}
             onError={(msg) => toast(msg, "error")}
           />
-        )}
+        }
       </div>
 
       {/* ── Add item modal ── */}
-      {showAdd && (
-        <MenuItemModal
-          canteenId={activeCanteenId}
-          onClose={() => setShowAdd(false)}
-          onSuccess={(msg) => toast(msg, "success")}
-          onError={(msg) => toast(msg, "error")}
-        />
-      )}
+      {showAdd &&
+        canManageCatalogue && ( // ← extra guard, belt-and-suspenders
+          <MenuItemModal
+            canteenId={activeCanteenId}
+            onClose={() => setShowAdd(false)}
+            onSuccess={(msg) => toast(msg, "success")}
+            onError={(msg) => toast(msg, "error")}
+          />
+        )}
 
       <ToastContainer toasts={toasts} dismiss={dismiss} />
     </>

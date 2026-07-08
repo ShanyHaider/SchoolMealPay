@@ -1,26 +1,18 @@
 "use server";
 
-// ─── cacheRevalidation.ts ──────────────────────────────────────
-// All revalidation helpers live here — must be "use server" because
-// revalidateTag() is a Next.js server-only API.
-//
-// WHY SPLIT FROM cache.ts?
-// cache.ts has tag builders (pure functions, safe anywhere).
-// This file calls revalidateTag() which is server-only.
-// Mixing them causes the TS error you saw — Next.js 15 overloads
-// revalidateTag(tag, profile?) and TypeScript can't resolve which
-// overload to use outside a server context.
-//
-// IMPORT RULE:
-//   Tag builders  → import from "@/lib/cache"
-//   Revalidators  → import from "@/lib/cacheRevalidation"
-//                   (only inside "use server" files / server actions)
+import {
+  revalidateTag as _revalidateTag,
+  updateTag as _updateTag,
+} from "next/cache";
 
-import { revalidateTag as _revalidateTag } from "next/cache";
-
-// Next.js 15 shipped broken types that require a second `profile` argument.
-// The runtime signature is still revalidateTag(tag: string) — this cast fixes it.
-const revalidateTag = (tag: string) => _revalidateTag(tag, "max");
+function revalidateTag(tag: string) {
+  try {
+    // Immediate invalidation — works when we're inside a Server Action.
+    _updateTag(tag);
+  } catch {
+    _revalidateTag(tag, { expire: 0 });
+  }
+}
 
 import {
   getGlobalTag,
@@ -127,13 +119,15 @@ export async function revalidateInventoryLogCache(canteenId: string) {
 // ── Orders ─────────────────────────────────────────────────────
 export async function revalidateOrderCache(
   orderId: string,
-  parentId: string,
+  parentId: string | null,
   studentId: string,
   canteenId: string,
 ) {
   revalidateTag(getGlobalTag("orders"));
   revalidateTag(getIdTag("orders", orderId));
-  revalidateTag(getUserTag("orders", parentId));
+  if (parentId) {
+    revalidateTag(getUserTag("orders", parentId));
+  }
   revalidateTag(getStudentTag("orders", studentId));
   revalidateTag(getCanteenTag("orders", canteenId));
 }
@@ -290,9 +284,9 @@ export async function revalidateSuperAdminAuditCache() {
 }
 
 export async function revalidateStaffCache(userId: string, clerkId: string) {
-  revalidateTag(getGlobalTag("users"));                  // busts getAllStaff()
-  revalidateTag(getIdTag("users", userId));              // busts per-row queries keyed by DB id
-  revalidateTag(getIdTag("users", clerkId));             // busts per-row queries keyed by clerkId
+  revalidateTag(getGlobalTag("users")); // busts getAllStaff()
+  revalidateTag(getIdTag("users", userId)); // busts per-row queries keyed by DB id
+  revalidateTag(getIdTag("users", clerkId)); // busts per-row queries keyed by clerkId
   revalidateTag(getGlobalTag("canteen-staff-assignments")); // busts assignment list queries
 }
 

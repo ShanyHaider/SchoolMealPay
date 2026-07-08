@@ -1,13 +1,19 @@
-import { currentUser } from "@clerk/nextjs/server";
+import { connection } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { getStaffCanteen, getTodayOrders } from "@/db/queries/Staff";
 import { OrdersBoard } from "./_components/OrdersBoard";
 import { getUserFromDb } from "@/features/users/queries";
 
 export default async function OrdersPage() {
-  const clerkUser = await currentUser();
-  if (!clerkUser) redirect("/sign-in");
-  const dbUser = await getUserFromDb(clerkUser.id);
+  // Force this segment into dynamic (request-time) rendering.
+  // Each route segment is an independent prerender entry point under
+  // Cache Components — the layout's connection() does NOT propagate here.
+  await connection();
+
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
+  const dbUser = await getUserFromDb(userId);
   if (!dbUser) redirect("/sign-in");
 
   const canteen = await getStaffCanteen(dbUser.id);

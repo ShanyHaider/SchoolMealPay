@@ -112,6 +112,8 @@ export async function syncNutritionTrends() {
                     },
                 });
         }
+
+        
     }
 
     return { synced: students.length };

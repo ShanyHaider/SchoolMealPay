@@ -1,4 +1,4 @@
-import { currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { getChildrenByParent } from "@/db/queries/Students";
 import { getChildActivitySummaries } from "@/db/queries/ChildActivity";
@@ -9,9 +9,9 @@ import { FadeIn } from "@/components/Motion";
 import { getUserFromDb } from "@/features/users/queries";
 
 export default async function ChildrenPage() {
-  const clerkUser = await currentUser();
-  if (!clerkUser) redirect("/sign-in");
-  const dbUser = await getUserFromDb(clerkUser.id);
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
+  const dbUser = await getUserFromDb(userId);
   if (!dbUser) redirect("/sign-in");
 
   const children = await getChildrenByParent(dbUser.id);

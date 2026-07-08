@@ -69,7 +69,9 @@ export function MenuClient({
       items: cart.map((i) => ({
         menuItemId: i.menuItemId,
         quantity: i.quantity,
-        unitPrice: i.price.toFixed(0),
+        // Number(...) as a defensive second layer — even if a price ever
+        // slips through as a string again, this won't throw.
+        unitPrice: Number(i.price).toFixed(0),
       })),
       forceLimitOverride,
     };
@@ -102,6 +104,21 @@ export function MenuClient({
     return true;
   }
 
+  // ── Error helper ──────────────────────────────────────────────────────────────
+  // Distinguishes real JS exceptions (bugs, bad data) from actual network
+  // failures, instead of lumping everything into "Network error".
+
+  function toastCaughtError(error: unknown) {
+    console.error("[MenuClient] order placement error:", error);
+    if (error instanceof TypeError && error.message.includes("fetch")) {
+      toast("Network error. Please check your connection.", "error");
+    } else if (error instanceof Error) {
+      toast(error.message, "error");
+    } else {
+      toast("Something went wrong. Please try again.", "error");
+    }
+  }
+
   // ── Order placement ──────────────────────────────────────────────────────────
 
   async function handlePlaceOrder() {
@@ -126,8 +143,8 @@ export function MenuClient({
         clearCart();
         setTimeout(() => router.push("/parent/orders"), 1200);
       }
-    } catch {
-      toast("Network error. Please check your connection.", "error");
+    } catch (error) {
+      toastCaughtError(error);
     } finally {
       setPlacing(false);
     }
@@ -143,8 +160,8 @@ export function MenuClient({
         clearCart();
         setTimeout(() => router.push("/parent/orders"), 1200);
       }
-    } catch {
-      toast("Network error. Please check your connection.", "error");
+    } catch (error) {
+      toastCaughtError(error);
     } finally {
       setPlacing(false);
     }

@@ -1,4 +1,4 @@
-import { currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { getChildrenByParent } from "@/db/queries/Students";
 import { getAllCanteens, getDailyMenu } from "@/db/queries/Canteen";
@@ -27,9 +27,9 @@ export default async function MenuPage({
 }: {
   searchParams: Promise<{ date?: string; canteen?: string }>;
 }) {
-  const clerkUser = await currentUser();
-  if (!clerkUser) redirect("/sign-in");
-  const dbUser = await getUserFromDb(clerkUser.id);
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
+  const dbUser = await getUserFromDb(userId);
   if (!dbUser) redirect("/sign-in");
 
   const filters = await searchParams;

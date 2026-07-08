@@ -1,4 +1,5 @@
-import { currentUser } from "@clerk/nextjs/server";
+import { connection } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import {
   getStaffCanteen,
@@ -14,9 +15,14 @@ import { QrCode, ClipboardList } from "lucide-react";
 import { getUserFromDb } from "@/features/users/queries";
 
 export default async function CanteenStaffPage() {
-  const clerkUser = await currentUser();
-  if (!clerkUser) redirect("/sign-in");
-  const dbUser = await getUserFromDb(clerkUser.id);
+  // Force this page segment into dynamic (request-time) rendering.
+  // Under Cache Components / PPR each route segment is an independent prerender
+  // entry point, so the layout's connection() does NOT propagate here.
+  await connection();
+
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
+  const dbUser = await getUserFromDb(userId);
   if (!dbUser) redirect("/sign-in");
 
   const canteen = await getStaffCanteen(dbUser.id);
@@ -45,7 +51,10 @@ export default async function CanteenStaffPage() {
           >
             No Canteen Assigned
           </h2>
-          <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+          <p
+            className="text-sm leading-relaxed"
+            style={{ color: "var(--text-secondary)" }}
+          >
             You haven&apos;t been assigned to a canteen yet. Contact your school
             administrator to get set up.
           </p>
@@ -73,7 +82,10 @@ export default async function CanteenStaffPage() {
           >
             Good {getGreeting()}, {firstName} 👋
           </h1>
-          <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+          <p
+            className="text-sm mt-1"
+            style={{ color: "var(--text-secondary)" }}
+          >
             {canteen.name} ·{" "}
             {new Date().toLocaleDateString("en-US", {
               weekday: "long",
@@ -85,7 +97,7 @@ export default async function CanteenStaffPage() {
 
         <Link
           href="/canteen-staff/qr-scan"
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:scale-[1.02] hover:brightness-110 flex-shrink-0"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:scale-[1.02] hover:brightness-110 shrink-0"
           style={{
             background: "#f59e0b",
             color: "#1a0f00",

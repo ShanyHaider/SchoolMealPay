@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Coffee, Cookie } from "lucide-react";
+import { Loader2, Coffee, Cookie, Droplets } from "lucide-react";
 import { UtensilsCrossed as ForkKnife } from "lucide-react";
 import { scheduleDailyMenu, removeDailyMenu } from "@/db/actions/admin/Canteen";
 import { scheduleDailyMenuSchema } from "@/lib/validations/validators";
@@ -17,10 +17,9 @@ import {
   type MenuItem,
   type DailyMenu,
   type Canteen,
-} from "../../../../../types/canteenMenuTypes";
-import { CATEGORY_ICONS_JSX } from "./MenuItemModal";
-import { getWeeklyMenuAction } from "@/db/actions/admin/getWeeklyMenuAction";
+} from "@/types/canteenMenuTypes";
 import { formatPKR } from "@/lib/currency";
+import { getWeeklyMenuAction } from "@/db/actions/admin/getWeeklyMenuAction";
 
 // ─── Slot icons ───────────────────────────────────────────────────────────────
 
@@ -29,6 +28,14 @@ const SLOT_ICONS: Record<MealSlot, React.ReactNode> = {
   lunch: <ForkKnife size={11} />,
   snack: <Cookie size={11} />,
 };
+
+export const CATEGORY_ICONS_JSX: Record<MenuItem["category"], React.ReactNode> =
+  {
+    breakfast: <Coffee size={12} />,
+    lunch: <ForkKnife size={12} />,
+    snack: <Cookie size={12} />,
+    beverage: <Droplets size={12} />,
+  };
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -61,14 +68,11 @@ export function ScheduleTab({
 }: ScheduleTabProps) {
   const [selectedSlot, setSelectedSlot] = useState<MealSlot>("lunch");
   const [schedulingDay, setSchedulingDay] = useState<string | null>(null);
-  const [removingId, setRemovingId] = useState<string | null>(null); // ← add
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   const [schedulePickValue, setSchedulePickValue] = useState("");
   const [openPickerDay, setOpenPickerDay] = useState<string | null>(null);
   const [mobileDay, setMobileDay] = useState(0);
-
-  // const [isScheduling, startScheduleTransition] = useTransition();
-  // const [isRemoving, startRemoveTransition] = useTransition();
 
   const dayDates = getDayDates(weekStart);
   const scheduleMap = buildScheduleMap(dailyMenus);
@@ -121,7 +125,7 @@ export function ScheduleTab({
       } catch {
         onError("Failed to schedule item.");
       } finally {
-        setSchedulingDay(null); // ← add this
+        setSchedulingDay(null);
       }
     })();
   };

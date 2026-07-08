@@ -4,8 +4,8 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 interface CanteenRedirectProps {
-    canteenIds: string[];
-    date: string;
+  canteenIds: string[];
+  date: string;
 }
 
 /**
@@ -14,14 +14,14 @@ interface CanteenRedirectProps {
  * silently redirects to it — no visible flash, no browser history entry.
  */
 export function CanteenRedirect({ canteenIds, date }: CanteenRedirectProps) {
-    const router = useRouter();
+  const router = useRouter();
 
-    useEffect(() => {
-        const preferred = localStorage.getItem("preferred_canteen");
-        if (preferred && canteenIds.includes(preferred)) {
-            router.replace(`/parent/menu?date=${date}&canteen=${preferred}`);
-        }
-    }, []);
+  useEffect(() => {
+    const preferred = localStorage.getItem("preferred_canteen");
+    if (preferred && canteenIds.includes(preferred)) {
+      router.replace(`/parent/menu?date=${date}&canteen=${preferred}`);
+    }
+  }, []);
 
-    return null;
+  return null;
 }

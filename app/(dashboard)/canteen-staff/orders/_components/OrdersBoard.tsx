@@ -22,35 +22,35 @@ const COLUMNS: {
   bg: string;
   color: string;
 }[] = [
-    {
-      status: "pending",
-      label: "Pending",
-      icon: Clock,
-      bg: "rgba(245,158,11,0.08)",
-      color: "#f59e0b",
-    },
-    {
-      status: "preparing",
-      label: "Preparing",
-      icon: ChefHat,
-      bg: "rgba(59,130,246,0.08)",
-      color: "#3b82f6",
-    },
-    {
-      status: "ready",
-      label: "Ready",
-      icon: PackageCheck,
-      bg: "rgba(139,92,246,0.08)",
-      color: "#8b5cf6",
-    },
-    {
-      status: "delivered",
-      label: "delivered",
-      icon: CheckCircle2,
-      bg: "rgba(34,197,94,0.08)",
-      color: "#22c55e",
-    },
-  ];
+  {
+    status: "pending",
+    label: "Pending",
+    icon: Clock,
+    bg: "rgba(245,158,11,0.08)",
+    color: "#f59e0b",
+  },
+  {
+    status: "preparing",
+    label: "Preparing",
+    icon: ChefHat,
+    bg: "rgba(59,130,246,0.08)",
+    color: "#3b82f6",
+  },
+  {
+    status: "ready",
+    label: "Ready",
+    icon: PackageCheck,
+    bg: "rgba(139,92,246,0.08)",
+    color: "#8b5cf6",
+  },
+  {
+    status: "delivered",
+    label: "delivered",
+    icon: CheckCircle2,
+    bg: "rgba(34,197,94,0.08)",
+    color: "#22c55e",
+  },
+];
 
 const NEXT_STATUS: Partial<Record<Status, Status>> = {
   pending: "preparing",
@@ -103,7 +103,7 @@ function OrderCard({
         <div>
           <div className="flex items-center gap-2">
             <div
-              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
               style={{
                 background: "var(--bg-tertiary)",
                 color: "var(--text-secondary)",
@@ -126,7 +126,7 @@ function OrderCard({
           </p>
         </div>
         <span
-          className="text-xs font-semibold flex-shrink-0"
+          className="text-xs font-semibold shrink-0"
           style={{ color: "var(--text-muted)" }}
         >
           {itemCount} item{itemCount !== 1 ? "s" : ""}
@@ -166,7 +166,7 @@ function OrderCard({
           <div key={oi.id} className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <span
-                className="w-5 h-5 rounded flex items-center justify-center text-xs font-bold flex-shrink-0"
+                className="w-5 h-5 rounded flex items-center justify-center text-xs font-bold shrink-0"
                 style={{
                   background: "var(--bg-tertiary)",
                   color: "var(--text-secondary)",
@@ -182,7 +182,7 @@ function OrderCard({
               </span>
             </div>
             <span
-              className="text-xs flex-shrink-0"
+              className="text-xs shrink-0"
               style={{ color: "var(--text-muted)" }}
             >
               Rs.{" "}
@@ -245,7 +245,11 @@ export function OrdersBoard({
   }, [initialOrders]);
 
   // In handleStatusChange — pass full order context
-  const handleStatusChange = (orderId: string, newStatus: Status, order: any) => {
+  const handleStatusChange = (
+    orderId: string,
+    newStatus: Status,
+    order: any,
+  ) => {
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)),
     );
@@ -287,11 +291,11 @@ export function OrdersBoard({
               background:
                 filterStatus === "all" ?
                   "var(--bg-pill-active)"
-                  : "transparent",
+                : "transparent",
               color:
                 filterStatus === "all" ?
                   "var(--text-primary)"
-                  : "var(--text-secondary)",
+                : "var(--text-secondary)",
               boxShadow:
                 filterStatus === "all" ? "var(--shadow-pill)" : undefined,
             }}
@@ -309,7 +313,7 @@ export function OrdersBoard({
                 color:
                   filterStatus === s ?
                     "var(--text-primary)"
-                    : "var(--text-secondary)",
+                  : "var(--text-secondary)",
                 boxShadow:
                   filterStatus === s ? "var(--shadow-pill)" : undefined,
               }}
@@ -375,7 +379,7 @@ export function OrdersBoard({
                           Empty
                         </p>
                       </div>
-                      : colOrders.map((order) => (
+                    : colOrders.map((order) => (
                         <OrderCard
                           key={order.id}
                           order={order}
@@ -390,7 +394,7 @@ export function OrdersBoard({
             })}
           </div>
           // Filtered single-status view
-          : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {orders
               .filter((o) => o.status === filterStatus)
               .map((order) => (

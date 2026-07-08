@@ -20,7 +20,16 @@ export default function DashboardError({
   // boundary in Next's error serialization, so match on name instead of
   // instanceof.
   const isGuardError = error.name === "GuardError";
-  const isInfraError = error.name === "GuardInfraError";
+  const isDbOrNetworkError = 
+    error.message?.includes("Failed query") ||
+    error.message?.includes("fetch failed") ||
+    error.message?.includes("connect") ||
+    error.message?.includes("db") ||
+    error.message?.includes("database") ||
+    error.message?.includes("NeonDbError") ||
+    error.message?.includes("ETIMEDOUT");
+
+  const isInfraError = error.name === "GuardInfraError" || isDbOrNetworkError;
 
   const code = (error as any).code as string | undefined;
 

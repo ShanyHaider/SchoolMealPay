@@ -8,9 +8,10 @@ import {
 import { eq, and, desc, count } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { getGlobalTag, getCanteenTag, getUserTag } from "@/lib/cache";
+import { cache } from "react";
 
 // ─── Staff's assigned canteen ─────────────────────────────────────
-export async function getStaffCanteen(staffId: string) {
+async function getStaffCanteenCached(staffId: string) {
   "use cache";
   cacheLife("hours");
   cacheTag(
@@ -24,6 +25,8 @@ export async function getStaffCanteen(staffId: string) {
   });
   return assignment?.canteen ?? null;
 }
+
+export const getStaffCanteen = cache(getStaffCanteenCached);
 
 // ─── Today's orders for a canteen ─────────────────────────────────
 export async function getTodayOrders(canteenId: string, today: string) {
@@ -144,7 +147,10 @@ export async function getOrderByQrCode(qrCode: string) {
 export async function getTodayMenu(canteenId: string) {
   "use cache";
   cacheLife("minutes");
-  cacheTag(getGlobalTag("daily-menus"), getCanteenTag("daily-menus", canteenId));
+  cacheTag(
+    getGlobalTag("daily-menus"),
+    getCanteenTag("daily-menus", canteenId),
+  );
   const today = new Date().toISOString().split("T")[0];
   return db.query.dailyMenusTable.findMany({
     where: and(
@@ -162,7 +168,10 @@ export async function getTodayMenu(canteenId: string) {
 export async function getCanteenInventory(canteenId: string) {
   "use cache";
   cacheLife("minutes");
-  cacheTag(getGlobalTag("inventory-items"), getCanteenTag("inventory-items", canteenId));
+  cacheTag(
+    getGlobalTag("inventory-items"),
+    getCanteenTag("inventory-items", canteenId),
+  );
   return db.query.inventoryItemsTable.findMany({
     where: eq(inventoryItemsTable.canteenId, canteenId),
     orderBy: [inventoryItemsTable.name],

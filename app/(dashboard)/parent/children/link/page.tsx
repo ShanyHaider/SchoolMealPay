@@ -1,4 +1,4 @@
-import { currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { LinkChildClient } from "./_components/LinkChildClient";
 import { getUserFromDb } from "@/features/users/queries";
@@ -6,9 +6,9 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 export default async function LinkChildPage() {
-  const clerkUser = await currentUser();
-  if (!clerkUser) redirect("/sign-in");
-  const dbUser = await getUserFromDb(clerkUser.id);
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
+  const dbUser = await getUserFromDb(userId);
   if (!dbUser) redirect("/sign-in");
 
   return (

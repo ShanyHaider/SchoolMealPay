@@ -1,4 +1,4 @@
-import { currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { getOrdersByParent } from "@/db/queries/Orders";
 import Link from "next/link";
@@ -36,9 +36,9 @@ export default async function OrdersPage({
 }: {
   searchParams: Promise<{ status?: string }>
 }) {
-  const clerkUser = await currentUser();
-  if (!clerkUser) redirect("/sign-in");
-  const dbUser = await getUserFromDb(clerkUser.id);
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
+  const dbUser = await getUserFromDb(userId);
   if (!dbUser) redirect("/sign-in");
 
   const { status } = await searchParams; // 

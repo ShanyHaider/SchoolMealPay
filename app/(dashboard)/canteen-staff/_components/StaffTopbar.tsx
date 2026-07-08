@@ -70,7 +70,7 @@ export function StaffTopbar({ canteen }: StaffTopbarProps) {
           <input
             type="text"
             placeholder="Search panels..."
-            className="w-[180px] bg-transparent text-[13px] text-(--text-primary) outline-none placeholder:text-(--text-muted)"
+            className="w-45 bg-transparent text-[13px] text-(--text-primary) outline-none placeholder:text-(--text-muted)"
           />
         </div>
 
